@@ -1,0 +1,14 @@
+# Node.js dependencies
+node_modules
+
+# Python virtual environment
+venv
+
+# Build folders
+dist
+
+# Python cache
+__pycache__
+
+# Environment variables
+.env
