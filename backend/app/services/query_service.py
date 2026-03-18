@@ -1,18 +1,9 @@
 import json
-from pathlib import Path
 from typing import Optional
 
-import geopandas as gpd
-import pandas as pd
-from shapely.geometry import box
+from sqlalchemy import text
 
-from app.config import (
-    CRS_METRIC,
-    CRS_WEB,
-    get_tile_index_path,
-    get_tile_index_geojson_path,
-    get_metadata_path,
-)
+from app.db_config import engine
 
 
 def parse_bbox_string(bbox_str: str):
@@ -22,32 +13,22 @@ def parse_bbox_string(bbox_str: str):
     return tuple(vals)
 
 
-def load_tile_index(layer_name: str) -> gpd.GeoDataFrame:
-    parquet_path = get_tile_index_path(layer_name)
-    geojson_path = get_tile_index_geojson_path(layer_name)
-
-    if parquet_path.exists():
-        return gpd.read_parquet(parquet_path)
-
-    if geojson_path.exists():
-        return gpd.read_file(geojson_path)
-
-    return gpd.GeoDataFrame(columns=["tile_path", "geometry"], geometry="geometry", crs=CRS_METRIC)
-
-
 def get_metadata(layer_name: str) -> dict:
-    path = get_metadata_path(layer_name)
-    if not path.exists():
-        return {"ok": False, "layer": layer_name, "message": "No analysis results yet."}
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("""
+                SELECT COUNT(*) AS cnt
+                FROM forest_cells
+                WHERE layer = :layer
+            """),
+            {"layer": layer_name},
+        ).fetchone()
 
-
-def load_tile_file(path: Path) -> gpd.GeoDataFrame:
-    if path.suffix.lower() == ".parquet":
-        return gpd.read_parquet(path)
-    return gpd.read_file(path)
-
+    return {
+        "ok": True,
+        "layer": layer_name,
+        "count": int(row._mapping["cnt"] if row else 0),
+    }
 
 def query_grid(
     layer_name: str = "coarse",
@@ -57,51 +38,84 @@ def query_grid(
     max_score: Optional[float] = None,
     limit: Optional[int] = None,
 ):
-    tile_index = load_tile_index(layer_name)
-    if tile_index.empty:
-        return {"type": "FeatureCollection", "features": []}
+    where_parts = ["layer = :layer"]
+    params = {"layer": layer_name}
 
-    bbox_geom = None
     if bbox:
         minx, miny, maxx, maxy = parse_bbox_string(bbox)
-        bbox_geom = box(minx, miny, maxx, maxy)
-        tile_index = tile_index[tile_index.intersects(bbox_geom)].copy()
-
-    if tile_index.empty:
-        return {"type": "FeatureCollection", "features": []}
-
-    frames = []
-    for path_str in tile_index["tile_path"].tolist():
-        path = Path(path_str)
-        if path.exists():
-            frames.append(load_tile_file(path))
-
-    if not frames:
-        return {"type": "FeatureCollection", "features": []}
-
-    gdf = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=CRS_METRIC)
-
-    if bbox_geom is not None:
-        gdf = gdf[gdf.intersects(bbox_geom)].copy()
+        where_parts.append(
+            "geometry && ST_MakeEnvelope(:minx, :miny, :maxx, :maxy, 3346)"
+        )
+        params.update(
+            {
+                "minx": minx,
+                "miny": miny,
+                "maxx": maxx,
+                "maxy": maxy,
+            }
+        )
 
     if classes:
-        allowed = [c.upper() for c in classes]
-        gdf = gdf[gdf["class"].isin(allowed)].copy()
+        class_clauses = []
+        for i, cls in enumerate(classes):
+            key = f"class_{i}"
+            class_clauses.append(f"class = :{key}")
+            params[key] = cls.upper()
+
+        where_parts.append("(" + " OR ".join(class_clauses) + ")")
 
     if min_score is not None:
-        gdf = gdf[gdf["final_score"] >= float(min_score)].copy()
+        where_parts.append("final_score >= :min_score")
+        params["min_score"] = float(min_score)
 
     if max_score is not None:
-        gdf = gdf[gdf["final_score"] <= float(max_score)].copy()
+        where_parts.append("final_score <= :max_score")
+        params["max_score"] = float(max_score)
+
+    sql = f"""
+        SELECT
+            id,
+            class,
+            forest_pct,
+            restr_pct,
+            final_score,
+            tile_xmin,
+            tile_ymin,
+            ST_AsGeoJSON(ST_Transform(geometry, 4326)) AS geom_json
+        FROM forest_cells
+        WHERE {' AND '.join(where_parts)}
+    """
 
     if limit is not None and limit > 0:
-        gdf = gdf.head(limit).copy()
+        sql += " LIMIT :limit"
+        params["limit"] = int(limit)
 
-    if gdf.empty:
-        return {"type": "FeatureCollection", "features": []}
+    with engine.begin() as conn:
+        rows = conn.execute(text(sql), params).fetchall()
 
-    gdf = gdf.to_crs(CRS_WEB)
-    return json.loads(gdf.to_json())
+        features = []
+    for row in rows:
+        r = row._mapping
+
+        feature = {
+            "type": "Feature",
+            "id": str(r["id"]),
+            "properties": {
+                "class": r["class"],
+                "forest_pct": r["forest_pct"],
+                "restr_pct": r["restr_pct"],
+                "final_score": r["final_score"],
+                "tile_xmin": r["tile_xmin"],
+                "tile_ymin": r["tile_ymin"],
+            },
+            "geometry": json.loads(r["geom_json"]),
+        }
+        features.append(feature)
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+    }
 
 
 def query_stats(
@@ -131,7 +145,9 @@ def query_stats(
             "avg_score": 0.0,
         }
 
-    green = yellow = red = 0
+    green = 0
+    yellow = 0
+    red = 0
     scores = []
 
     for feature in features:

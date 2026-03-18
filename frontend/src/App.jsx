@@ -15,19 +15,19 @@ proj4.defs(
   "+proj=tmerc +lat_0=0 +lon_0=24 +k=0.9998 +x_0=500000 +y_0=0 +ellps=GRS80 +units=m +no_defs"
 );
 
-function MapWatcher({ onViewportChange }) {
+function MapWatcher({ onViewportChange, onMouseMove }) {
   useMapEvents({
     load(e) {
-      const map = e.target;
-      onViewportChange(map);
+      onViewportChange(e.target);
     },
     moveend(e) {
-      const map = e.target;
-      onViewportChange(map);
+      onViewportChange(e.target);
     },
     zoomend(e) {
-      const map = e.target;
-      onViewportChange(map);
+      onViewportChange(e.target);
+    },
+    mousemove(e) {
+      onMouseMove(e.latlng);
     },
   });
 
@@ -39,9 +39,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [featureCount, setFeatureCount] = useState(0);
   const [currentLayer, setCurrentLayer] = useState("coarse");
+  const [coords, setCoords] = useState(null);
 
-  const lastRequestKeyRef = useRef("");
   const debounceRef = useRef(null);
+  const lastRequestKeyRef = useRef("");
 
   const styleFeature = useCallback((feature) => {
     const cls = feature?.properties?.class;
@@ -69,6 +70,17 @@ function App() {
     `);
   }, []);
 
+  const fetchGrid = useCallback(async (layer, bbox) => {
+    const url = `${API_BASE}/grid?layer=${layer}&bbox=${encodeURIComponent(bbox)}`;
+    const res = await fetch(url);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    return await res.json();
+  }, []);
+
   const fetchLayerData = useCallback(async (map) => {
     const zoom = map.getZoom();
     const bounds = map.getBounds();
@@ -76,35 +88,36 @@ function App() {
     const sw = bounds.getSouthWest();
     const ne = bounds.getNorthEast();
 
-    // Leaflet duoda lng/lat (WGS84), backend nori EPSG:3346
     const [minx, miny] = proj4("EPSG:4326", "EPSG:3346", [sw.lng, sw.lat]);
     const [maxx, maxy] = proj4("EPSG:4326", "EPSG:3346", [ne.lng, ne.lat]);
 
-    const layer = zoom >= 10 ? "detail" : "coarse";
     const bbox = `${minx},${miny},${maxx},${maxy}`;
+    const preferredLayer = zoom >= 10 ? "detail" : "coarse";
 
-    const requestKey = `${layer}|${bbox}`;
+    const requestKey = `${preferredLayer}|${bbox}`;
     if (requestKey === lastRequestKeyRef.current) {
       return;
     }
     lastRequestKeyRef.current = requestKey;
 
     setLoading(true);
-    setCurrentLayer(layer);
 
     try {
-      const res = await fetch(
-        `${API_BASE}/grid?layer=${layer}&bbox=${encodeURIComponent(bbox)}`
-      );
+      let data = await fetchGrid(preferredLayer, bbox);
+      let usedLayer = preferredLayer;
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+      // fallback: jei detail tuščias, grįžtam prie coarse
+      if (
+        preferredLayer === "detail" &&
+        (!data.features || data.features.length === 0)
+      ) {
+        data = await fetchGrid("coarse", bbox);
+        usedLayer = "coarse";
       }
 
-      const data = await res.json();
       setGeoData(data);
       setFeatureCount(data?.features?.length || 0);
-      console.log("Loaded layer:", layer, "features:", data?.features?.length || 0);
+      setCurrentLayer(usedLayer);
     } catch (err) {
       console.error("Fetch klaida:", err);
       setGeoData(null);
@@ -112,7 +125,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchGrid]);
 
   const handleViewportChange = useCallback((map) => {
     if (debounceRef.current) {
@@ -123,6 +136,10 @@ function App() {
       fetchLayerData(map);
     }, 250);
   }, [fetchLayerData]);
+
+  const handleMouseMove = useCallback((latlng) => {
+    setCoords(latlng);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -162,7 +179,10 @@ function App() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          <MapWatcher onViewportChange={handleViewportChange} />
+          <MapWatcher
+            onViewportChange={handleViewportChange}
+            onMouseMove={handleMouseMove}
+          />
 
           {geoData && geoData.features && geoData.features.length > 0 && (
             <GeoJSON
@@ -171,6 +191,12 @@ function App() {
               style={styleFeature}
               onEachFeature={onEachFeature}
             />
+          )}
+
+          {coords && (
+            <div className="coords-box">
+              Lat: {coords.lat.toFixed(5)}, Lng: {coords.lng.toFixed(5)}
+            </div>
           )}
         </MapContainer>
       </div>
