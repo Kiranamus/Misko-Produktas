@@ -1,14 +1,22 @@
-# Node.js dependencies
-node_modules
+# Python
+.venv/
+__pycache__/
+*.pyc
 
-# Python virtual environment
-venv
+# Data (SVARBU - nes dideli failai!)
+data/processed/
+data/exports/
 
-# Build folders
-dist
+# OS
+.DS_Store
+Thumbs.db
 
-# Python cache
-__pycache__
+# Logs
+*.log
 
-# Environment variables
+# Env
 .env
+
+# Node (just in case)
+node_modules/
+dist/
