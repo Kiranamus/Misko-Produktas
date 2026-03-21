@@ -143,55 +143,65 @@ export default function MapPage() {
   }, []);
 
   return (
-    <div className="content">
+  <div className="content">
 
-      <div className="legend">
-        <span className="legend-item green">■ Geras</span>
-        <span className="legend-item yellow">■ Vidutinis</span>
-        <span className="legend-item red">■ Blogas</span>
-      </div>
-      {/* Status */}
-      <div className="loading">
-        {loading
-          ? "Kraunama..."
-          : `Sluoksnis: ${currentLayer} | Objektų: ${featureCount}`}
-      </div>
+    <div className="layout">
 
-      {/* Map */}
-      <div className="map-container">
-        <MapContainer
-          center={[55.2, 23.9]}
-          zoom={7}
-          minZoom={6}
-          preferCanvas={true}
-          style={{ height: "100%", width: "100%" }}
-        >
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
-          <MapWatcher
-            onViewportChange={handleViewportChange}
-            onMouseMove={handleMouseMove}
-          />
-
-          {geoData?.features?.length > 0 && (
-            <GeoJSON
-              key={`${currentLayer}-${featureCount}`}
-              data={geoData}
-              style={styleFeature}
-              onEachFeature={onEachFeature}
+      {/* LEFT: Map */}
+      <div className="map-column">
+        <div className="map-container">
+          <MapContainer
+            center={[55.2, 23.9]}
+            zoom={7}
+            minZoom={6}
+            preferCanvas={true}
+            style={{ height: "100%", width: "100%" }}
+          >
+            <TileLayer
+              attribution="&copy; OpenStreetMap contributors"
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-          )}
 
-          {coords && (
-            <div className="coords-box">
-              Lat: {coords.lat.toFixed(5)}, Lng: {coords.lng.toFixed(5)}
-            </div>
-          )}
-        </MapContainer>
+            <MapWatcher
+              onViewportChange={handleViewportChange}
+              onMouseMove={handleMouseMove}
+            />
+
+            {geoData?.features?.length > 0 && (
+              <GeoJSON
+                key={`${currentLayer}-${featureCount}`}
+                data={geoData}
+                style={styleFeature}
+                onEachFeature={onEachFeature}
+              />
+            )}
+
+            {coords && (
+              <div className="coords-box">
+                Lat: {coords.lat.toFixed(5)}, Lng: {coords.lng.toFixed(5)}
+              </div>
+            )}
+          </MapContainer>
+        </div>
       </div>
+
+      {/* RIGHT: Info */}
+      <div className="info-column">
+        <div className="legend">
+          <span className="legend-item green">■ Geras</span>
+          <span className="legend-item yellow">■ Vidutinis</span>
+          <span className="legend-item red">■ Blogas</span>
+        </div>
+
+        <div className="loading">
+          {loading
+            ? "Kraunama..."
+            : `Sluoksnis: ${currentLayer} | Objektų: ${featureCount}`}
+        </div>
+      </div>
+
     </div>
-  );
+  </div>
+);
+
 }

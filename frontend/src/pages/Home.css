@@ -15,9 +15,9 @@ p {
 }
 
 .go-map-btn {
-  margin: 0 auto 20px;   /* centers horizontally */
-  display: block;        /* needed for margin auto to work */
-  padding: 8px 16px;     /* makes it medium-sized */
+  margin: 0 auto 20px;
+  display: block;
+  padding: 8px 16px;
   font-size: 14px;
 }
 
