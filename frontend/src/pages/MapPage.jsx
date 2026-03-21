@@ -4,10 +4,8 @@ import proj4 from "proj4";
 import "leaflet/dist/leaflet.css";
 import "./MapPage.css";
 
-// API
 const API_BASE = "http://127.0.0.1:8000/api";
 
-// Projections
 proj4.defs("EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs");
 
 proj4.defs(
@@ -15,7 +13,6 @@ proj4.defs(
   "+proj=tmerc +lat_0=0 +lon_0=24 +k=0.9998 +x_0=500000 +y_0=0 +ellps=GRS80 +units=m +no_defs"
 );
 
-// Watch map events
 function MapWatcher({ onViewportChange, onMouseMove }) {
   useMapEvents({
     moveend(e) {
@@ -42,7 +39,6 @@ export default function MapPage() {
   const debounceRef = useRef(null);
   const lastRequestKeyRef = useRef("");
 
-  // Style polygons
   const styleFeature = useCallback((feature) => {
     const cls = feature?.properties?.class;
 
@@ -59,7 +55,6 @@ export default function MapPage() {
     };
   }, []);
 
-  // Popup content
   const onEachFeature = useCallback((feature, layer) => {
     const p = feature.properties || {};
     layer.bindPopup(`
@@ -70,7 +65,6 @@ export default function MapPage() {
     `);
   }, []);
 
-  // Fetch data
   const fetchGrid = async (layer, bbox) => {
     const res = await fetch(
       `${API_BASE}/grid?layer=${layer}&bbox=${encodeURIComponent(bbox)}`
@@ -147,7 +141,6 @@ export default function MapPage() {
 
     <div className="layout">
 
-      {/* LEFT: Map */}
       <div className="map-column">
         <div className="map-container">
           <MapContainer
@@ -185,7 +178,6 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* RIGHT: Info */}
       <div className="info-column">
         <div className="legend">
           <span className="legend-item green">■ Geras</span>

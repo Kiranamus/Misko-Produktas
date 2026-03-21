@@ -10,7 +10,6 @@ function App() {
 
   return (
     <div className="app">
-      {/* 🔝 NAVBAR (always visible) */}
       <div className="navbar">
         <h1>Miško investicinis žemėlapis</h1>
 
@@ -31,8 +30,7 @@ function App() {
           </button>
         </div>
       </div>
-
-      {/* 📄 ROUTES (page switching happens here) */}
+      
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/map" element={<MapPage />} />

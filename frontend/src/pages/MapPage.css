@@ -61,12 +61,10 @@
   gap: 20px;
 }
 
-/* LEFT column (map) */
 .map-column {
-  flex: 3; /* takes most space */
+  flex: 3;
 }
 
-/* RIGHT column (legend + loading) */
 .info-column {
   flex: 1;
   display: flex;
@@ -74,7 +72,6 @@
   gap: 12px;
 }
 
-/* Map styling */
 .map-container {
   width: 100%;
   height: 90vh;
@@ -84,7 +81,6 @@
   background: white;
 }
 
-/* Make it responsive */
 @media (max-width: 900px) {
   .layout {
     flex-direction: column;
