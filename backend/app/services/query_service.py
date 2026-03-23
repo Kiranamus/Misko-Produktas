@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy import text
 
 from app.db_config import engine
+from app.config import LT_BOUNDARY_WKT
 
 
 def parse_bbox_string(bbox_str: str):
@@ -33,13 +34,17 @@ def get_metadata(layer_name: str) -> dict:
 def query_grid(
     layer_name: str = "coarse",
     bbox: Optional[str] = None,
-    classes: Optional[list[str]] = None,
     min_score: Optional[float] = None,
     max_score: Optional[float] = None,
     limit: Optional[int] = None,
 ):
-    where_parts = ["layer = :layer"]
-    params = {"layer": layer_name}
+    where_parts = [
+        "layer = :layer",
+        "ST_Intersects(geometry, ST_GeomFromText(:lt_boundary, 3346))",
+        "COALESCE(forest_pct, 0) > 0",
+        "final_score >= 0.05"
+    ]
+    params = {"layer": layer_name, "lt_boundary": LT_BOUNDARY_WKT}
 
     if bbox:
         minx, miny, maxx, maxy = parse_bbox_string(bbox)
@@ -55,15 +60,6 @@ def query_grid(
             }
         )
 
-    if classes:
-        class_clauses = []
-        for i, cls in enumerate(classes):
-            key = f"class_{i}"
-            class_clauses.append(f"class = :{key}")
-            params[key] = cls.upper()
-
-        where_parts.append("(" + " OR ".join(class_clauses) + ")")
-
     if min_score is not None:
         where_parts.append("final_score >= :min_score")
         params["min_score"] = float(min_score)
@@ -75,12 +71,16 @@ def query_grid(
     sql = f"""
         SELECT
             id,
-            class,
+            layer,
             forest_pct,
-            restr_pct,
+            valstybinis_pct,
+            n2000_pct,
+            n2000_index,
+            vmt_index,
+            restrictions_index,
+            soil_index,
+            road_score,
             final_score,
-            tile_xmin,
-            tile_ymin,
             ST_AsGeoJSON(ST_Transform(geometry, 4326)) AS geom_json
         FROM forest_cells
         WHERE {' AND '.join(where_parts)}
@@ -101,12 +101,16 @@ def query_grid(
             "type": "Feature",
             "id": str(r["id"]),
             "properties": {
-                "class": r["class"],
-                "forest_pct": r["forest_pct"],
-                "restr_pct": r["restr_pct"],
-                "final_score": r["final_score"],
-                "tile_xmin": r["tile_xmin"],
-                "tile_ymin": r["tile_ymin"],
+                "layer": r["layer"],
+                "forest_pct": 0.0 if r["forest_pct"] is None else float(r["forest_pct"]),
+                "valstybinis_pct": 0.0 if r["valstybinis_pct"] is None else float(r["valstybinis_pct"]),
+                "n2000_pct": 0.0 if r["n2000_pct"] is None else float(r["n2000_pct"]),
+                "n2000_index": 0.0 if r["n2000_index"] is None else float(r["n2000_index"]),
+                "vmt_index": 0.0 if r["vmt_index"] is None else float(r["vmt_index"]),
+                "restrictions_index": 0.0 if r["restrictions_index"] is None else float(r["restrictions_index"]),
+                "soil_index": 0.0 if r["soil_index"] is None else float(r["soil_index"]),
+                "road_score": 0.0 if r["road_score"] is None else float(r["road_score"]),
+                "final_score": 0.0 if r["final_score"] is None else float(r["final_score"]),
             },
             "geometry": json.loads(r["geom_json"]),
         }
@@ -128,7 +132,6 @@ def query_stats(
     data = query_grid(
         layer_name=layer_name,
         bbox=bbox,
-        classes=classes,
         min_score=min_score,
         max_score=max_score,
         limit=None,
@@ -152,13 +155,12 @@ def query_stats(
 
     for feature in features:
         props = feature.get("properties", {})
-        cls = props.get("class")
         score = float(props.get("final_score", 0.0))
         scores.append(score)
 
-        if cls == "GREEN":
+        if score >= 0.66:
             green += 1
-        elif cls == "YELLOW":
+        elif score >= 0.33:
             yellow += 1
         else:
             red += 1

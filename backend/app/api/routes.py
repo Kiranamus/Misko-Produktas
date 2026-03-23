@@ -9,7 +9,7 @@ from app.config import (
     DEFAULT_SIMPLIFY_TOL_M,
     MAX_WORKERS,
 )
-from app.services.pipeline import run_analysis, read_status
+from app.services.pipeline import process_analysis, read_status
 from app.services.query_service import get_metadata, query_grid, query_stats
 
 router = APIRouter()
@@ -47,7 +47,7 @@ def analyze(
         if tile_size is None:
             tile_size = DEFAULT_DETAIL_TILE_SIZE_M if layer == "detail" else DEFAULT_COARSE_TILE_SIZE_M
 
-        return run_analysis(
+        return process_analysis(
             layer_name=layer,
             grid_size=grid_size,
             tile_size=tile_size,
@@ -64,17 +64,14 @@ def analyze(
 def grid(
     layer: str = Query(default="coarse", pattern="^(coarse|detail)$"),
     bbox: Optional[str] = Query(default=None, description="EPSG:3346 bbox: minx,miny,maxx,maxy"),
-    classes: Optional[str] = None,
     min_score: Optional[float] = None,
     max_score: Optional[float] = None,
     limit: Optional[int] = None,
 ):
     try:
-        parsed_classes = [c.strip().upper() for c in classes.split(",")] if classes else None
         return query_grid(
             layer_name=layer,
             bbox=bbox,
-            classes=parsed_classes,
             min_score=min_score,
             max_score=max_score,
             limit=limit,

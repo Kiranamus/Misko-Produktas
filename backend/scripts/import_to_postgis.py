@@ -19,6 +19,28 @@ DETAIL_DIR = PROCESSED_DIR / "detail" / "tiles"
 CRS_METRIC = "EPSG:3346"
 
 
+def ensure_database_columns() -> None:
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS forest_cells"))
+
+        conn.execute(text("""
+            CREATE TABLE forest_cells (
+                id serial PRIMARY KEY,
+                layer text,
+                forest_pct double precision,
+                valstybinis_pct double precision,
+                n2000_pct double precision,
+                n2000_index double precision,
+                vmt_index double precision,
+                restrictions_index double precision,
+                soil_index double precision,
+                road_score double precision,
+                final_score double precision,
+                geometry geometry(Geometry, 3346)
+            )
+        """))
+
+
 def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
     if not folder.exists():
         print(f"[WARN] Folder not found: {folder}")
@@ -49,38 +71,69 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
 
         gdf["layer"] = layer_name
 
-        # tik reikalingi stulpeliai
+        # senų išvestinių stulpelių palaikymas (detail tiles, legacy formatai)
+        legacy_rename = {
+            "restr_pct": "restrictions_index",
+            "soil_pct": "soil_index",
+            "vmt_pct": "vmt_index",
+            "n2000_idx": "n2000_index",
+            "n2000_prc": "n2000_pct",
+            "valstybinis_prc": "valstybinis_pct",
+            "road_prc": "road_score",
+        }
+        for old_col, new_col in legacy_rename.items():
+            if old_col in gdf.columns and new_col not in gdf.columns:
+                gdf[new_col] = gdf[old_col]
+
+        # tik reikalingi stulpeliai (miško ir indeksai + OVR final_score + layer + geometry)
         keep_cols = [
             "layer",
-            "class",
             "forest_pct",
-            "restr_pct",
+            "valstybinis_pct",
+            "n2000_pct",
+            "n2000_index",
+            "vmt_index",
+            "restrictions_index",
+            "soil_index",
+            "road_score",
             "final_score",
-            "tile_xmin",
-            "tile_ymin",
             "geometry",
         ]
 
         existing = [c for c in keep_cols if c in gdf.columns]
         gdf = gdf[existing].copy()
 
-        # jei kai kurių stulpelių nėra
-        if "class" not in gdf.columns:
-            gdf["class"] = None
-        if "forest_pct" not in gdf.columns:
-            gdf["forest_pct"] = None
-        if "restr_pct" not in gdf.columns:
-            gdf["restr_pct"] = None
-        if "final_score" not in gdf.columns:
-            gdf["final_score"] = None
-        if "tile_xmin" not in gdf.columns:
-            gdf["tile_xmin"] = None
-        if "tile_ymin" not in gdf.columns:
-            gdf["tile_ymin"] = None
+        # jei kai kurių stulpelių nėra, priskiriame numatytas reikšmes
+        defaults = {
+            "forest_pct": 0.0,
+            "valstybinis_pct": 0.0,
+            "n2000_pct": 0.0,
+            "n2000_index": 0.0,
+            "vmt_index": 0.0,
+            "restrictions_index": 0.0,
+            "soil_index": 0.0,
+            "road_score": 0.0,
+            "final_score": 0.0,
+        }
 
-        gdf = gdf[
-            ["layer", "class", "forest_pct", "restr_pct", "final_score", "tile_xmin", "tile_ymin", "geometry"]
-        ].copy()
+        for col, default in defaults.items():
+            if col not in gdf.columns:
+                gdf[col] = default
+
+        # užpildyti NaN reikšmes skaitiniams stulpeliams
+        for col in ["n2000_index", "vmt_index", "restrictions_index", "soil_index", "road_score", "final_score"]:
+            if col in gdf.columns:
+                gdf[col] = gdf[col].fillna(0.0)
+
+        # perskaičiuoti final_score kaip vidurkį iš restrictions_index, road_score, soil_index
+        # jei visi trys yra 0, tai final_score = 0
+        def calc_ovr(row):
+            indices = [row['restrictions_index'], row['road_score'], row['soil_index']]
+            non_zero = [i for i in indices if i > 0]
+            return sum(non_zero) / len(non_zero) if non_zero else 0.0
+        gdf['final_score'] = gdf.apply(calc_ovr, axis=1)
+
+        gdf = gdf[["layer", "forest_pct", "valstybinis_pct", "n2000_pct", "n2000_index", "vmt_index", "restrictions_index", "soil_index", "road_score", "final_score", "geometry"]].copy()
 
         frames.append(gdf)
 
@@ -118,6 +171,8 @@ def import_layer(folder: Path, layer_name: str) -> None:
 
 
 if __name__ == "__main__":
+    ensure_database_columns()
+
     clear_layer("coarse")
     import_layer(COARSE_DIR, "coarse")
 
