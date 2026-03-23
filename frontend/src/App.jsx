@@ -45,12 +45,11 @@ function App() {
   const lastRequestKeyRef = useRef("");
 
   const styleFeature = useCallback((feature) => {
-    const cls = feature?.properties?.class;
+    const score = feature?.properties?.final_score ?? 0.0;
 
-    let fillColor = "#888";
-    if (cls === "GREEN") fillColor = "#2e7d32";
-    else if (cls === "YELLOW") fillColor = "#fbc02d";
-    else if (cls === "RED") fillColor = "#d32f2f";
+    let fillColor = "#d32f2f"; // red low
+    if (score >= 0.66) fillColor = "#2e7d32";
+    else if (score >= 0.33) fillColor = "#fbc02d";
 
     return {
       color: "#ffffff",
@@ -63,10 +62,11 @@ function App() {
   const onEachFeature = useCallback((feature, layer) => {
     const p = feature.properties || {};
     layer.bindPopup(`
-      <b>Klasė:</b> ${p.class ?? "-"}<br/>
-      <b>Balas:</b> ${p.final_score ?? "-"}<br/>
-      <b>Miško %:</b> ${p.forest_pct ?? "-"}<br/>
-      <b>Ribojimų %:</b> ${p.restr_pct ?? "-"}
+      <b>Sluoksnis:</b> ${p.layer ?? "-"}<br/>
+      <b>OVR (final_score):</b> ${p.final_score?.toFixed(3) ?? "-"}<br/>
+      <b>Ribojimų indeksas:</b> ${p.restrictions_index?.toFixed(3) ?? "-"}<br/>
+      <b>Kelių indeksas:</b> ${p.road_score?.toFixed(3) ?? "-"}<br/>
+      <b>Dirvožemio indeksas:</b> ${p.soil_index?.toFixed(3) ?? "-"}
     `);
   }, []);
 
