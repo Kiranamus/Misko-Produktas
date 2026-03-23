@@ -11,6 +11,24 @@ export default function Home() {
         <p>
           Programa skirta surasti geriausią miško plotą investavimui
         </p>
+
+        <p>
+          Komanda K603
+        </p>
+
+        <p>
+          Giedrė Jansonaitė,
+          Simas Janulynas,
+          Matas Kučas,
+          Kastautas Maižvila,
+          Mindaugas Matulaitis,
+          Ugnius Sasnauskas
+        </p>
+
+        <p>
+          Mentorius
+          Prof. Rytis Maskeliūnas
+        </p>
       </div>
 
 
