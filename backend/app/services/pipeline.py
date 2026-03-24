@@ -476,7 +476,6 @@ def process_tile(tile_bounds, layer_name, grid_size, simplify_tol_m):
     grid["restrictions_index"] = (
     (grid["n2000_index"].fillna(0.0) + grid["vmt_index"].fillna(0.0)) / 2.0).clip(0.0, 1.0)
 
-# ←←← NAUJA LOGIKA ←←←
     has_forest = grid["forest_pct"] >= 0.2
     grid = grid[has_forest].copy()
 

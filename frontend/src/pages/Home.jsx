@@ -9,7 +9,7 @@ export default function Home() {
     <div className="home">
       <div className="parag">
         <p>
-          Programa skirta surasti geriausią miško plotą investavimui
+          ForestForYou
         </p>
 
         <p>

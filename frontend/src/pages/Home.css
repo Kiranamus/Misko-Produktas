@@ -6,21 +6,64 @@ div {
   display: flex;
   flex-direction: column;
   min-height: 100vh; 
-  text-align: center;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0f7fa, #ffffff);
+  padding: 20px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
-p {
-  margin-bottom: 10px;
-  color: #000;
+/* Pagrindinis pavadinimas */
+.home .parag p:first-child {
+  font-size: 100px; /* nebūtinai per didelis */
+  font-weight: 700;
+  color: #025701ad; /* headerio spalva */
+  margin-bottom: 30px;
 }
 
+/* Komandos ir mentoriaus tekstas atskirose eilutėse */
+.parag p:nth-child(2),
+.parag p:nth-child(3),
+.parag p:nth-child(4) {
+  font-size: 16px;
+  line-height: 1.5;
+  color: #025701ad;
+  margin-bottom: 12px;
+}
+
+/* Mygtukas */
 .go-map-btn {
-  margin: 0 auto 20px;
-  display: block;
-  padding: 8px 16px;
-  font-size: 14px;
+  margin-top: 20px;
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #025701ad;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
 }
 
-.parag {
-    margin-top: 20px;
+.go-map-btn:hover {
+  background-color: #02410192;
+  transform: scale(1.05);
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+  .home .parag p:first-child {
+    font-size: 28px;
+  }
+
+  .parag p:nth-child(2),
+  .parag p:nth-child(3),
+  .parag p:nth-child(4) {
+    font-size: 14px;
+  }
+
+  .go-map-btn {
+    width: 80%;
+    padding: 12px 0;
+  }
 }

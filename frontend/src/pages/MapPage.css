@@ -1,64 +1,15 @@
-.loading {
-  color: #000;
-  font-size: 14px;
-  display: inline-block;
-  width: 200px;
-  margin-bottom: 20px;
-}
-
-.legend {
-  max-width: 100%;
-  display: flex;
-  gap: 16px;
-  margin-bottom: 12px;
-  font-size: 24px;
-  flex-direction: column;
-  align-items: start;
-}
-
-.legend-item.green {
-  color: #2e7d32;
-}
-
-.legend-item.yellow {
-  color: #fbc02d;
-}
-
-.legend-item.red {
-  color: #d32f2f;
-}
-
-
-.leaflet-container {
-  width: 100%;
-  height: 100%;
-}
-
-.coords-box {
-  position: absolute;
-  bottom: 12px;
-  left: 12px;
-  z-index: 1000;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
-
-.status {
-  font-size: 14px;
-  opacity: 0.9;
-}
+/* === layout === */
 
 .content {
   padding: 12px 20px;
   box-sizing: border-box;
+  height: 100vh; /* pilnas lango aukštis */
 }
 
 .layout {
   display: flex;
   gap: 20px;
+  height: 100%;
 }
 
 .map-column {
@@ -69,8 +20,11 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  height: 100%;
 }
+
+/* === map === */
 
 .map-container {
   width: 100%;
@@ -81,43 +35,195 @@
   background: white;
 }
 
-@media (max-width: 900px) {
-  .layout {
-    flex-direction: column;
-  }
+.leaflet-container {
+  width: 100%;
+  height: 100%;
 }
-.weights-panel {
-  background: white;
+
+/* === cards === */
+
+.card {
+  background: #ffffff;
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.card h3 {
+  margin: 0 0 10px 0;
+  font-size: 25px;
+}
+
+/* === legend === */
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+/* spalvos */
+.legend-box.green { background: #1b5e20; }
+.legend-box.light-green { background: #66bb6a; }
+.legend-box.yellow { background: #fbc02d; }
+.legend-box.orange { background: #ff8f00; }
+.legend-box.red { background: #c62828; }
+
+/* === status === */
+
+.status-card {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+/* === sliders === */
+
+.weights-panel {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.weights-panel h3 {
-  margin: 0;
-  font-size: 20px;
 }
 
 .weights-panel label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 500;
+}
+
+/* slider track */
 .weights-panel input[type="range"] {
   width: 100%;
+  height: 6px;
+  border-radius: 5px;
+  background: #ddd;
+  outline: none;
+  -webkit-appearance: none;
 }
 
+/* slider thumb */
+.weights-panel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1976d2;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.weights-panel input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* === misc === */
+
 .weight-sum {
-  font-size: 15px;
-  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .weight-note {
-  font-size: 13px;
-  color: #555;
+  font-size: 12px;
+  color: #666;
+}
+
+/* coords */
+
+.coords-box {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* === Top3 panel === */
+
+/* Top3 langas iki žemėlapio apačios */
+/* info stulpelis kaip flex container */
+.info-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 90vh;       /* tas pats aukštis kaip žemėlapis */
+}
+
+/* kitos kortelės nekeičiamos, Top3 užpildo likusį aukštį */
+.top3-panel {
+  flex: 1;           /* užpildo likusį aukštį */
+  min-height: 0;     /* būtina scrollinimui flex konteineryje */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* ol sąrašas Top3 viduje */
+.top3-panel ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* === Leaflet popup === */
+
+.leaflet-popup-content {
+  white-space: nowrap;   /* eilutės nepersikels */
+  min-width: 450px;      /* platesnis fiksuotas plotis */
+  max-width: 600px;      /* nebūtų per daug platus */
+  overflow-x: auto;      /* jei tekstas per ilgas – scroll horizontaliai */
+}
+
+/* responsive */
+
+@media (max-width: 900px) {
+  .layout {
+    flex-direction: column;
+  }
+  .map-container {
+    height: 60vh;
+  }
+}
+.top3-simple {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* turinys prie viršaus */
+  align-items: center;          /* horizontalus centras */
+  text-align: center;
+  padding-top: 12px;
+}
+
+.top3-simple h3 {
+  font-size: 25px;       /* didesnis pavadinimas */
+  font-weight: 700;      /* ryškus pavadinimas */
+  margin-bottom: 12px;
+}
+
+.top3-text {
+  font-size: 18px;       /* normalus tekstas */
+  font-weight: 400;      /* neparyškintas */
+  line-height: 1.5;
 }
