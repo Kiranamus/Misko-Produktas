@@ -21,7 +21,7 @@ def run_coarse():
         grid_size=DEFAULT_COARSE_GRID_SIZE_M,
         tile_size=DEFAULT_COARSE_TILE_SIZE_M,
         simplify_tol_m=DEFAULT_SIMPLIFY_TOL_M,
-        max_workers=MAX_WORKERS,
+        max_workers=8,
         clear_cache=True,
         bbox=None,
     )
