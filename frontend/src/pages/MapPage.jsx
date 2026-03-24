@@ -40,12 +40,16 @@ export default function MapPage() {
   const lastRequestKeyRef = useRef("");
 
   const styleFeature = useCallback((feature) => {
-    const cls = feature?.properties?.class;
+    const score = feature?.properties?.final_score ?? 0;
 
-    let fillColor = "#888";
-    if (cls === "GREEN") fillColor = "#2e7d32";
-    else if (cls === "YELLOW") fillColor = "#fbc02d";
-    else if (cls === "RED") fillColor = "#d32f2f";
+    let fillColor = "#d32f2f"; // raudona – žemas balas
+
+    if (score >= 0.66) {
+      fillColor = "#2e7d32"; // žalia – geras
+    } else if (score >= 0.33) {
+      fillColor = "#fbc02d"; // geltona – vidutinis
+    }
+    // < 0.33 → lieka raudona
 
     return {
       color: "#ffffff",
@@ -57,11 +61,13 @@ export default function MapPage() {
 
   const onEachFeature = useCallback((feature, layer) => {
     const p = feature.properties || {};
+
     layer.bindPopup(`
-      <b>Klasė:</b> ${p.class ?? "-"}<br/>
-      <b>Balas:</b> ${p.final_score ?? "-"}<br/>
-      <b>Miško %:</b> ${p.forest_pct ?? "-"}<br/>
-      <b>Ribojimų %:</b> ${p.restr_pct ?? "-"}
+      <b>Slūoksnis:</b> ${p.layer ?? "-"}<br/>
+      <b>OVR (final_score):</b> ${p.final_score != null ? p.final_score.toFixed(3) : "-"}<br/>
+      <b>Ribojimų indeksas:</b> ${p.restrictions_index != null ? p.restrictions_index.toFixed(3) : "-"}<br/>
+      <b>Kelių indeksas:</b> ${p.road_score != null ? p.road_score.toFixed(3) : "-"}<br/>
+      <b>Dirvožemio indeksas:</b> ${p.soil_index != null ? p.soil_index.toFixed(3) : "-"}
     `);
   }, []);
 
@@ -137,63 +143,59 @@ export default function MapPage() {
   }, []);
 
   return (
-  <div className="content">
-
-    <div className="layout">
-
-      <div className="map-column">
-        <div className="map-container">
-          <MapContainer
-            center={[55.2, 23.9]}
-            zoom={7}
-            minZoom={6}
-            preferCanvas={true}
-            style={{ height: "100%", width: "100%" }}
-          >
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            <MapWatcher
-              onViewportChange={handleViewportChange}
-              onMouseMove={handleMouseMove}
-            />
-
-            {geoData?.features?.length > 0 && (
-              <GeoJSON
-                key={`${currentLayer}-${featureCount}`}
-                data={geoData}
-                style={styleFeature}
-                onEachFeature={onEachFeature}
+    <div className="content">
+      <div className="layout">
+        <div className="map-column">
+          <div className="map-container">
+            <MapContainer
+              center={[55.2, 23.9]}
+              zoom={7}
+              minZoom={6}
+              preferCanvas={true}
+              style={{ height: "100%", width: "100%" }}
+            >
+              <TileLayer
+                attribution="© OpenStreetMap contributors"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-            )}
 
-            {coords && (
-              <div className="coords-box">
-                Lat: {coords.lat.toFixed(5)}, Lng: {coords.lng.toFixed(5)}
-              </div>
-            )}
-          </MapContainer>
+              <MapWatcher
+                onViewportChange={handleViewportChange}
+                onMouseMove={handleMouseMove}
+              />
+
+              {geoData?.features?.length > 0 && (
+                <GeoJSON
+                  key={`${currentLayer}-${featureCount}`}
+                  data={geoData}
+                  style={styleFeature}
+                  onEachFeature={onEachFeature}
+                />
+              )}
+
+              {coords && (
+                <div className="coords-box">
+                  Lat: {coords.lat.toFixed(5)}, Lng: {coords.lng.toFixed(5)}
+                </div>
+              )}
+            </MapContainer>
+          </div>
+        </div>
+
+        <div className="info-column">
+          <div className="legend">
+            <span className="legend-item green">■ Geras (≥ 0.66)</span>
+            <span className="legend-item yellow">■ Vidutinis (0.33–0.65)</span>
+            <span className="legend-item red">■ Blogas (&lt; 0.33)</span>
+          </div>
+
+          <div className="loading">
+            {loading
+              ? "Kraunama..."
+              : `Sluoksnis: ${currentLayer} | Objektų: ${featureCount}`}
+          </div>
         </div>
       </div>
-
-      <div className="info-column">
-        <div className="legend">
-          <span className="legend-item green">■ Geras</span>
-          <span className="legend-item yellow">■ Vidutinis</span>
-          <span className="legend-item red">■ Blogas</span>
-        </div>
-
-        <div className="loading">
-          {loading
-            ? "Kraunama..."
-            : `Sluoksnis: ${currentLayer} | Objektų: ${featureCount}`}
-        </div>
-      </div>
-
     </div>
-  </div>
-);
-
+  );
 }
