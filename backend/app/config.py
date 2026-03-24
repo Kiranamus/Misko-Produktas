@@ -22,7 +22,7 @@ SHP_ROADS = RAW_DIR / "ValstybiniuKeliuTinklas_2025" / "ValstybiniuKeliuTinklas_
 LAYER_AREA = "Valstybines_reiksmes_misku_plotu_ribos"
 LAYER_FOREST = "Misku_pogrupiai"
 LAYER_RESTR = "NM_teritorijos"
-LAYER_DIRV = os.getenv("LAYER_DIRV", "apreptis_db")
+LAYER_DIRV = os.getenv("LAYER_DIRV", "konturas")
 LAYER_ROADS = os.getenv("LAYER_ROADS", "")
 
 CRS_METRIC = "EPSG:3346"

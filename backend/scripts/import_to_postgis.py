@@ -26,7 +26,7 @@ def ensure_database_columns() -> None:
         conn.execute(text("""
             CREATE TABLE forest_cells (
                 id serial PRIMARY KEY,
-                layer text,
+                layer text NOT NULL,
                 forest_pct double precision,
                 valstybinis_pct double precision,
                 n2000_pct double precision,
@@ -35,10 +35,22 @@ def ensure_database_columns() -> None:
                 restrictions_index double precision,
                 soil_index double precision,
                 road_score double precision,
-                final_score double precision,
                 geometry geometry(Geometry, 3346)
             )
         """))
+
+        conn.execute(text("""
+            CREATE INDEX idx_forest_cells_geometry
+            ON forest_cells
+            USING GIST (geometry)
+        """))
+
+        conn.execute(text("""
+            CREATE INDEX idx_forest_cells_layer
+            ON forest_cells(layer)
+        """))
+
+    print("[OK] Recreated forest_cells table")
 
 
 def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
@@ -56,6 +68,7 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
 
     for file in files:
         print(f"[READ] {file.name}")
+
         if file.suffix.lower() == ".parquet":
             gdf = gpd.read_parquet(file)
         else:
@@ -71,7 +84,7 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
 
         gdf["layer"] = layer_name
 
-        # senų išvestinių stulpelių palaikymas (detail tiles, legacy formatai)
+        # Suderinamumas su senesniais failais
         legacy_rename = {
             "restr_pct": "restrictions_index",
             "soil_pct": "soil_index",
@@ -81,11 +94,11 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
             "valstybinis_prc": "valstybinis_pct",
             "road_prc": "road_score",
         }
+
         for old_col, new_col in legacy_rename.items():
             if old_col in gdf.columns and new_col not in gdf.columns:
                 gdf[new_col] = gdf[old_col]
 
-        # tik reikalingi stulpeliai (miško ir indeksai + OVR final_score + layer + geometry)
         keep_cols = [
             "layer",
             "forest_pct",
@@ -96,14 +109,12 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
             "restrictions_index",
             "soil_index",
             "road_score",
-            "final_score",
             "geometry",
         ]
 
         existing = [c for c in keep_cols if c in gdf.columns]
         gdf = gdf[existing].copy()
 
-        # jei kai kurių stulpelių nėra, priskiriame numatytas reikšmes
         defaults = {
             "forest_pct": 0.0,
             "valstybinis_pct": 0.0,
@@ -113,27 +124,40 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
             "restrictions_index": 0.0,
             "soil_index": 0.0,
             "road_score": 0.0,
-            "final_score": 0.0,
         }
 
         for col, default in defaults.items():
             if col not in gdf.columns:
                 gdf[col] = default
 
-        # užpildyti NaN reikšmes skaitiniams stulpeliams
-        for col in ["n2000_index", "vmt_index", "restrictions_index", "soil_index", "road_score", "final_score"]:
-            if col in gdf.columns:
-                gdf[col] = gdf[col].fillna(0.0)
+        numeric_cols = [
+            "forest_pct",
+            "valstybinis_pct",
+            "n2000_pct",
+            "n2000_index",
+            "vmt_index",
+            "restrictions_index",
+            "soil_index",
+            "road_score",
+        ]
 
-        # perskaičiuoti final_score kaip vidurkį iš restrictions_index, road_score, soil_index
-        # jei visi trys yra 0, tai final_score = 0
-        def calc_ovr(row):
-            indices = [row['restrictions_index'], row['road_score'], row['soil_index']]
-            non_zero = [i for i in indices if i > 0]
-            return sum(non_zero) / len(non_zero) if non_zero else 0.0
-        gdf['final_score'] = gdf.apply(calc_ovr, axis=1)
+        for col in numeric_cols:
+            gdf[col] = pd.to_numeric(gdf[col], errors="coerce").fillna(0.0)
 
-        gdf = gdf[["layer", "forest_pct", "valstybinis_pct", "n2000_pct", "n2000_index", "vmt_index", "restrictions_index", "soil_index", "road_score", "final_score", "geometry"]].copy()
+        gdf = gdf[
+            [
+                "layer",
+                "forest_pct",
+                "valstybinis_pct",
+                "n2000_pct",
+                "n2000_index",
+                "vmt_index",
+                "restrictions_index",
+                "soil_index",
+                "road_score",
+                "geometry",
+            ]
+        ].copy()
 
         frames.append(gdf)
 
@@ -146,7 +170,10 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
 
 def clear_layer(layer_name: str) -> None:
     with engine.begin() as conn:
-        conn.execute(text("DELETE FROM forest_cells WHERE layer = :layer"), {"layer": layer_name})
+        conn.execute(
+            text("DELETE FROM forest_cells WHERE layer = :layer"),
+            {"layer": layer_name},
+        )
     print(f"[OK] Cleared layer: {layer_name}")
 
 

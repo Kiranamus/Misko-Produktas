@@ -122,18 +122,17 @@ def read_vector(path: Path, bbox_bounds=None) -> gpd.GeoDataFrame:
     return gdf[["geometry"]].copy()
 
 
-# 🔥 FIXED ROAD SCORE (exponential)
 def calculate_road_score(grid, roads):
     if roads is None or roads.empty or grid.empty:
         return pd.Series(np.zeros(len(grid)), index=grid.index)
 
-    roads = roads.unary_union
+    roads_union = roads.unary_union
 
     def score(geom):
         if geom is None or geom.is_empty:
             return 0.0
-        dist = geom.distance(roads)
-        return float(math.exp(-dist / 1000))
+        dist = geom.distance(roads_union)
+        return float(1.0 / (1.0 + dist / 1500.0))
 
     return grid.geometry.apply(score)
 
@@ -261,64 +260,67 @@ def compute_soil_scores(soil_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     soil_gdf = soil_gdf.copy()
 
-    for col in ["TEX_F", "TEX_K", "PH_L", "DRA", "TOP", "LAEL", "SLGR", "ABST", "SIST"]:
+    for col in ["TEX_K_P", "TEX_K_D", "TEX_F_P", "TEX_F_D", "KOMP_KIEKI"]:
         if col not in soil_gdf.columns:
-            soil_gdf[col] = np.nan
+            soil_gdf[col] = None
 
-    tex_f_map = {
-        's': 0.1, 's1': 0.2, 'ps': 0.3, 'sp': 0.4, 'sp2': 0.5,
-        'p1': 0.6, 'p2': 0.7, 'dps': 0.8, 'da': 0.85, 'dp': 0.9,
-        'dp1': 0.92, 'dp2': 0.94, 'sm': 0.95, 'dm': 0.97, 'm': 1.0,
+    tex_map = {
+        "z": 0.05,
+        "s": 0.10,
+        "s1": 0.20,
+        "ps": 0.30,
+        "sp": 0.40,
+        "sp2": 0.50,
+        "p": 0.55,
+        "p1": 0.60,
+        "p2": 0.70,
+        "dps": 0.80,
+        "da": 0.85,
+        "dp": 0.90,
+        "dp1": 0.92,
+        "dp2": 0.94,
+        "sm": 0.95,
+        "dm": 0.97,
+        "m": 1.00,
     }
-    tex_k_map = {
-        'z': 0.05, 's': 0.1, 's1': 0.2, 'ps': 0.3, 'p': 0.4,
-        'p1': 0.5, 'p2': 0.6, 'm': 0.7, 'm1': 0.8, 'm2': 0.9,
-        'pv': 0.95, 'd': 0.1,
-    }
-    top_map = {'F': 1.0, 'A': 0.95, 'G': 0.85, 'U': 0.7, 'R': 0.5, 'H': 0.3, 'S': 0.2}
-    lael_map = {'PL': 1.0, 'WW': 0.9, 'HI': 0.8, 'RV': 0.7, 'VA': 0.6, 'DE': 0.5, 'IF': 0.4, 'DU': 0.3, 'ID': 0.2, 'SL': 0.4, 'OR': 0.3, 'TE': 0.5}
-    slgr_map = {1: 1.0, 2: 0.95, 3: 0.85, 4: 0.7, 5: 0.5, 6: 0.3, 7: 0.1}
-    abst_map = {'n': 1.0, 'v': 0.9, 'f': 0.8, 'c': 0.5, 'm': 0.2}
-    sist_map = {'c': 1.0, 's': 0.9, 'b': 0.7, 'l': 0.4}
 
-    soil_gdf['tex_f_score'] = soil_gdf['TEX_F'].astype(str).str.lower().apply(lambda v: tex_f_map.get(v, 0.5))
-    soil_gdf['tex_k_score'] = soil_gdf['TEX_K'].astype(str).str.lower().apply(lambda v: tex_k_map.get(v, 0.5))
-
-    def ph_score(ph):
-        try:
-            ph = float(ph)
-        except Exception:
+    def score_tex(value):
+        if value is None:
             return 0.5
-        if 6.0 <= ph <= 7.0:
+        value = str(value).strip().lower()
+        if not value:
+            return 0.5
+        return tex_map.get(value, 0.5)
+
+    soil_gdf["tex_k_p_score"] = soil_gdf["TEX_K_P"].apply(score_tex)
+    soil_gdf["tex_k_d_score"] = soil_gdf["TEX_K_D"].apply(score_tex)
+    soil_gdf["tex_f_p_score"] = soil_gdf["TEX_F_P"].apply(score_tex)
+    soil_gdf["tex_f_d_score"] = soil_gdf["TEX_F_D"].apply(score_tex)
+
+    def comp_score(v):
+        try:
+            n = int(v)
+        except Exception:
             return 1.0
-        if 4.0 <= ph < 6.0:
-            return max(0.0, min(1.0, (ph - 4.0) / 2.0))
-        if 7.0 < ph <= 9.0:
-            return max(0.0, min(1.0, (9.0 - ph) / 2.0))
-        return 0.0
+        if n <= 1:
+            return 1.0
+        if n == 2:
+            return 0.9
+        if n == 3:
+            return 0.8
+        if n == 4:
+            return 0.7
+        return 0.6
 
-    soil_gdf['ph_score'] = soil_gdf['PH_L'].apply(ph_score)
+    soil_gdf["comp_score"] = soil_gdf["KOMP_KIEKI"].apply(comp_score)
 
-    def dra_score(v):
-        try:
-            d = float(v)
-        except Exception:
-            return 0.5
-        if d < 0:
-            d = 0
-        if d > 5:
-            d = 5
-        return 1.0 - d / 5.0
+    soil_gdf["soil_index"] = (
+        soil_gdf[
+            ["tex_k_p_score", "tex_k_d_score", "tex_f_p_score", "tex_f_d_score"]
+        ].mean(axis=1) * 0.85
+        + soil_gdf["comp_score"] * 0.15
+    ).clip(0.0, 1.0)
 
-    soil_gdf['dra_score'] = soil_gdf['DRA'].apply(dra_score)
-    soil_gdf['top_score'] = soil_gdf['TOP'].astype(str).str.upper().apply(lambda v: top_map.get(v, 0.5))
-    soil_gdf['lael_score'] = soil_gdf['LAEL'].astype(str).str.upper().apply(lambda v: lael_map.get(v, 0.5))
-    soil_gdf['slgr_score'] = soil_gdf['SLGR'].apply(lambda v: slgr_map.get(int(v), 0.5) if pd.notna(v) and str(v).isdigit() else 0.5)
-    soil_gdf['abst_score'] = soil_gdf['ABST'].astype(str).str.lower().apply(lambda v: abst_map.get(v, 0.5))
-    soil_gdf['sist_score'] = soil_gdf['SIST'].astype(str).str.lower().apply(lambda v: sist_map.get(v, 0.5))
-
-    score_cols = ['tex_f_score', 'tex_k_score', 'ph_score', 'dra_score', 'top_score', 'lael_score', 'slgr_score', 'abst_score', 'sist_score']
-    soil_gdf['soil_index'] = soil_gdf[score_cols].mean(axis=1)
     return soil_gdf
 
 
@@ -475,44 +477,49 @@ def process_tile(tile_bounds, layer_name, grid_size, simplify_tol_m):
     (grid["n2000_index"].fillna(0.0) + grid["vmt_index"].fillna(0.0)) / 2.0).clip(0.0, 1.0)
 
 # ←←← NAUJA LOGIKA ←←←
-    has_forest = grid["forest_pct"] > 0.2                     # minimalus slenkstis (5%)
-    grid["final_score"] = 0.0
+    has_forest = grid["forest_pct"] >= 0.2
+    grid = grid[has_forest].copy()
 
-    grid.loc[has_forest, "final_score"] = (
-    grid.loc[has_forest, "forest_pct"]
-    * (
-        grid.loc[has_forest, "restrictions_index"] * 0.4
-        + grid.loc[has_forest, "soil_index"] * 0.3
-        + grid.loc[has_forest, "road_score"] * 0.3
-    )).clip(0.0, 1.0)
+    if grid.empty:
+        return None
 
-    grid = grid[grid["final_score"] >= 0.05].copy()
+    # techninis preview balas analizei / diagnostikai
+    grid["final_score"] = (
+        (
+            np.power(grid["restrictions_index"].fillna(0.0), 1.8) * 0.4
+            + np.power(grid["soil_index"].fillna(0.0), 1.25) * 0.3
+            + np.power(grid["road_score"].fillna(0.0), 1.15) * 0.3
+        )
+        * np.where(grid["restrictions_index"].fillna(0.0) < 0.35, 0.5, 1.0)
+    ).clip(0.0, 1.0)
 
-    grid["class"] = grid["final_score"].apply(classify)
     grid["tile_xmin"] = xmin
     grid["tile_ymin"] = ymin
 
-    out = grid[[
-        "geometry",
-        "cell_local_id",
-        "forest_pct",
-        "valstybinis_pct",
-        "n2000_pct",
-        "n2000_index",
-        "vmt_index",
-        "restrictions_index",
-        "soil_index",
-        "road_score",
-        "final_score",
-        "class",
-        "tile_xmin",
-        "tile_ymin",
-    ]].copy()
+    out = grid[
+        [
+            "geometry",
+            "cell_local_id",
+            "forest_pct",
+            "valstybinis_pct",
+            "n2000_pct",
+            "n2000_index",
+            "vmt_index",
+            "restrictions_index",
+            "soil_index",
+            "road_score",
+            "final_score",
+            "tile_xmin",
+            "tile_ymin",
+        ]
+    ].copy()
 
     out_base = get_tiles_dir(layer_name) / tile_filename(tile_bounds)
     actual_path = write_gdf_with_fallback(out, out_base)
 
-    counts = out["class"].value_counts().to_dict()
+    green_count = int((grid["final_score"] >= 0.66).sum())
+    yellow_count = int(((grid["final_score"] >= 0.33) & (grid["final_score"] < 0.66)).sum())
+    red_count = int((grid["final_score"] < 0.33).sum())
 
     return {
         "tile_path": actual_path,
@@ -522,9 +529,9 @@ def process_tile(tile_bounds, layer_name, grid_size, simplify_tol_m):
         "ymax": ymax,
         "n_cells": int(len(out)),
         "avg_score": float(out["final_score"].mean()) if len(out) else 0.0,
-        "green_count": int(counts.get("GREEN", 0)),
-        "yellow_count": int(counts.get("YELLOW", 0)),
-        "red_count": int(counts.get("RED", 0)),
+        "green_count": green_count,
+        "yellow_count": yellow_count,
+        "red_count": red_count,
         "geometry": box(xmin, ymin, xmax, ymax),
     }
 

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
+from app.services.query_service import get_metadata, query_grid, query_stats, query_distribution
 
 from app.config import (
     DEFAULT_COARSE_GRID_SIZE_M,
@@ -67,6 +68,9 @@ def grid(
     min_score: Optional[float] = None,
     max_score: Optional[float] = None,
     limit: Optional[int] = None,
+    w_restr: float = 40,
+    w_soil: float = 30,
+    w_road: float = 30,
 ):
     try:
         return query_grid(
@@ -75,6 +79,9 @@ def grid(
             min_score=min_score,
             max_score=max_score,
             limit=limit,
+            w_restr=w_restr,
+            w_soil=w_soil,
+            w_road=w_road,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -87,6 +94,9 @@ def stats(
     classes: Optional[str] = None,
     min_score: Optional[float] = None,
     max_score: Optional[float] = None,
+    w_restr: float = 40,
+    w_soil: float = 30,
+    w_road: float = 30,
 ):
     try:
         parsed_classes = [c.strip().upper() for c in classes.split(",")] if classes else None
@@ -96,6 +106,18 @@ def stats(
             classes=parsed_classes,
             min_score=min_score,
             max_score=max_score,
+            w_restr=w_restr,
+            w_soil=w_soil,
+            w_road=w_road,
         )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.get("/distribution")
+def distribution(
+layer: str = Query(default="coarse", pattern="^(coarse|detail)$"),
+):
+    try:
+        return query_distribution(layer_name=layer)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
