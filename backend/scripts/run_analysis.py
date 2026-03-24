@@ -21,7 +21,7 @@ def run_coarse():
         grid_size=DEFAULT_COARSE_GRID_SIZE_M,
         tile_size=DEFAULT_COARSE_TILE_SIZE_M,
         simplify_tol_m=DEFAULT_SIMPLIFY_TOL_M,
-        max_workers=8,
+        max_workers=MAX_WORKERS,
         clear_cache=True,
         bbox=None,
     )
@@ -44,6 +44,11 @@ def run_detail():
     print(result)
 
 
+def run_both():
+    run_coarse()
+    run_detail()
+
+
 if __name__ == "__main__":
     mode = "both"
     if len(sys.argv) > 1:
@@ -54,5 +59,4 @@ if __name__ == "__main__":
     elif mode == "detail":
         run_detail()
     else:
-        run_coarse()
-        run_detail()
+        run_both()
