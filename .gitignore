@@ -20,3 +20,31 @@ Thumbs.db
 # Node (just in case)
 node_modules/
 dist/
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Raw GIS data
+data/raw/
+backend/data/raw/
+
+# Generated processed/cache data
+data/processed/
+backend/data/processed/
+data/exports/
+backend/data/exports/
+
+# Local env / secrets
+.env
+*.env
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/settings.json
