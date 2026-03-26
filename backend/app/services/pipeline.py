@@ -469,12 +469,29 @@ def process_tile(tile_bounds, layer_name, grid_size, simplify_tol_m):
         soil = compute_soil_scores(soil)
 
     grid = soil_weighted_average(grid, soil)
+
+    grid["soil_index"] = np.power(
+    grid["soil_index"],
+    (1 - grid["soil_index"]) * 10
+    )
+
     grid["road_score"] = calculate_road_score(grid, roads)
+
+    grid["road_score"] = np.power(
+    grid["road_score"],
+    (1 - grid["road_score"]) * 10
+    )
     #grid["restrictions_index"] = ((grid["n2000_index"].fillna(0.0) + grid["vmt_index"].fillna(0.0)) / 2.0).clip(0.0, 1.0)
     #grid["final_score"] = ((grid["restrictions_index"].fillna(0.0) + grid["soil_index"].fillna(0.0) + grid["road_score"].fillna(0.0)) / 3.0).clip(0.0, 1.0)
 
     grid["restrictions_index"] = (
-    (grid["n2000_index"].fillna(0.0) + grid["vmt_index"].fillna(0.0)) / 2.0).clip(0.0, 1.0)
+    (grid["n2000_index"] + grid["vmt_index"]) / 2.0
+    ).clip(0.0, 1.0)
+
+    grid["restrictions_index"] = np.power(
+        grid["restrictions_index"],
+        (1 - grid["restrictions_index"]) * 10
+    )
 
     has_forest = grid["forest_pct"] >= 0.2
     grid = grid[has_forest].copy()
