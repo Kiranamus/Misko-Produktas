@@ -1,42 +1,51 @@
-import { Routes, Route } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
-import { FaHome } from "react-icons/fa";
+import { Routes, Route, NavLink } from "react-router-dom";
+import Home from "./pages/Home";
+import MapPage from "./pages/MapPage";
+import "./App.css";
 
-import Home from "./pages/Home.jsx";
-import MapPage from "./pages/MapPage.jsx";
-
-function App() {
-  const navigate = useNavigate();
-
+export default function App() {
   return (
-    <div className="app">
-      <div className="navbar">
-        <h1>Miško investicinis žemėlapis</h1>
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <NavLink to="/" className="brand">
+            <div className="brand-mark">F</div>
+            <div className="brand-text">
+              <span className="brand-title">ForestForYou</span>
+              <span className="brand-subtitle">
+                Miškininkystės analizė ir investavimas
+              </span>
+            </div>
+          </NavLink>
 
-        <div className="navbar-right">
-          <button
-            className="transparent-btn"
-            title="Pagrindinis"
-            onClick={() => navigate("/")}
-          >
-            <FaHome />
-          </button>
+          <nav className="topbar-nav">
+            <NavLink
+              to="/"
+              className={({ isActive }) =>
+                isActive ? "nav-link active" : "nav-link"
+              }
+            >
+              Pagrindinis
+            </NavLink>
 
-          <button
-            className="transparent-btn"
-            onClick={() => navigate("/map")}
-          >
-            Žemėlapis
-          </button>
+            <NavLink
+              to="/map"
+              className={({ isActive }) =>
+                isActive ? "nav-link active" : "nav-link"
+              }
+            >
+              Žemėlapis
+            </NavLink>
+          </nav>
         </div>
-      </div>
-      
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/map" element={<MapPage />} />
-      </Routes>
+      </header>
+
+      <main className="app-main">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/map" element={<MapPage />} />
+        </Routes>
+      </main>
     </div>
   );
 }
-
-export default App;

@@ -1,42 +1,146 @@
-import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { FaArrowRight, FaMapMarkedAlt, FaLeaf, FaLayerGroup } from "react-icons/fa";
 import "./Home.css";
 
 export default function Home() {
   const navigate = useNavigate();
-  
+
   return (
-    <div className="home">
-      <div className="parag">
-        <p>
-          ForestForYou
-        </p>
+    <div className="home-page">
+      <div className="home-bg home-bg-1"></div>
+      <div className="home-bg home-bg-2"></div>
+      <div className="home-bg home-bg-3"></div>
 
-        <p>
-          Komanda K603
-        </p>
+      <section className="hero-section">
+        <div className="hero-left">
+          <div className="hero-badge">Miškininkystės analizės ir investavimo platforma</div>
 
-        <p>
-          Giedrė Jansonaitė,
-          Simas Janulynas,
-          Matas Kučas,
-          Kastautas Maižvila,
-          Mindaugas Matulaitis,
-          Ugnius Sasnauskas
-        </p>
+          <h1 className="hero-title">
+            Forest
+            <span>ForYou</span>
+          </h1>
 
-        <p>
-          Mentorius
-          Prof. Rytis Maskeliūnas
-        </p>
-      </div>
+          <p className="hero-subtitle">
+            Interaktyvi sistema miško teritorijų vertinimui, skirta padėti
+            aiškiau suprasti investicinį potencialą pagal geoduomenis,
+            ribojimus, dirvožemį ir susisiekimą.
+          </p>
 
+          <p className="hero-note">
+            Sprendimas orientuotas į duomenimis pagrįstą pasirinkimą:
+            naudotojas mato prioritetines teritorijas žemėlapyje ir gali
+            koreguoti vertinimo svorius pagal savo tikslus.
+          </p>
 
-      <button className="go-map-btn"
-        onClick={() => navigate("/map")}
-      >
-        Eiti į žemėlapį
-      </button>
+          <div className="hero-actions">
+            <button
+              className="primary-btn"
+              onClick={() => navigate("/map")}
+            >
+              <span>Atverti investavimo žemėlapį</span>
+              <FaArrowRight />
+            </button>
+
+            <button
+              className="secondary-btn"
+              onClick={() => {
+                const section = document.getElementById("about-project");
+                section?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              Sužinoti daugiau
+            </button>
+          </div>
+
+          <div className="hero-stats">
+            <div className="stat-card">
+              <FaMapMarkedAlt className="stat-icon" />
+              <div>
+                <div className="stat-value">Erdvinė analizė</div>
+                <div className="stat-label">GIS pagrindu atliekamas vertinimas</div>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <FaLayerGroup className="stat-icon" />
+              <div>
+                <div className="stat-value">PostGIS</div>
+                <div className="stat-label">Geo duomenų saugojimas ir apdorojimas</div>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <FaLeaf className="stat-icon" />
+              <div>
+                <div className="stat-value">Investicinis indeksas</div>
+                <div className="stat-label">Aiškus teritorijų palyginimas</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="hero-right">
+          <div className="glass-card highlight-card">
+            <div className="highlight-top">
+              <span className="highlight-chip">ForestForYou</span>
+              <span className="highlight-chip muted">K603 komanda</span>
+            </div>
+
+            <h2>Miško investavimo žemėlapis su aiškiu vizualiu vertinimu</h2>
+
+            <p>
+              Platforma padeda išskirti teritorijas pagal investavimo
+              palankumą ir leidžia greitai pamatyti, kur verta koncentruoti
+              dėmesį, o kur rizikos didesnės.
+            </p>
+
+            <div className="mini-grid">
+              <div className="mini-item">
+                <span className="mini-number">1</span>
+                <span>Apjungiami svarbiausi geografiniai sluoksniai</span>
+              </div>
+              <div className="mini-item">
+                <span className="mini-number">2</span>
+                <span>Skaičiuojamas individualizuotas balas</span>
+              </div>
+              <div className="mini-item">
+                <span className="mini-number">3</span>
+                <span>Žemėlapyje parodomi perspektyviausi plotai</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="info-section" id="about-project">
+        <div className="info-card project-card">
+          <h3>Apie projektą</h3>
+          <p>
+            „ForestForYou“ yra kuriama SaaS tipo miškininkystės analizės
+            platforma, orientuota į patogų teritorijų vertinimą ir vizualų
+            investavimo sprendimų palaikymą. Sistemos tikslas – padėti
+            naudotojui aiškiai pamatyti, kurios vietovės gali būti
+            palankiausios pagal pasirinktus kriterijus.
+          </p>
+        </div>
+
+        <div className="info-card team-card">
+          <h3>Komanda K603</h3>
+          <div className="team-list">           
+            <span>Matas Kučas</span>
+            <span>Mindaugas Matulaitis</span>
+            <span>Giedrė Jansonaitė</span>
+            <span>Simas Janulynas</span>
+            <span>Kastautas Maižvila</span>
+            <span>Ugnius Sasnauskas</span>      
+          </div>
+        </div>
+
+        <div className="info-card mentor-card">
+          <h3>Mentorius</h3>
+          <p>Prof. Rytis Maskeliūnas</p>
+        </div>
+      </section>
     </div>
   );
 }

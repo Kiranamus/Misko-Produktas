@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"; 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMapEvents } from "react-leaflet";
 import proj4 from "proj4";
 import "leaflet/dist/leaflet.css";
@@ -51,17 +51,17 @@ export default function MapPage() {
     const score = feature?.properties?.final_score ?? 0;
     let fillColor;
 
-    if (score > 0.8) fillColor = "#1b5e20";
-    else if (score >= 0.6) fillColor = "#66bb6a";
-    else if (score >= 0.4) fillColor = "#fbc02d";
-    else if (score >= 0.2) fillColor = "#ff8f00";
-    else fillColor = "#c62828";
+    if (score > 0.8) fillColor = "#245a43";
+    else if (score >= 0.6) fillColor = "#5d9d78";
+    else if (score >= 0.4) fillColor = "#d8b94c";
+    else if (score >= 0.2) fillColor = "#cf8646";
+    else fillColor = "#b85454";
 
     return {
       color: "#ffffff",
-      weight: 0.2,
+      weight: 0.3,
       fillColor,
-      fillOpacity: 0.65,
+      fillOpacity: 0.72,
     };
   }, []);
 
@@ -71,8 +71,7 @@ export default function MapPage() {
     return "-";
   };
 
-  const format = (v) =>
-  v != null ? Number(v).toFixed(2) : "-";
+  const format = (v) => (v != null ? Number(v).toFixed(2) : "-");
 
   const getIndexRating = (v) => {
     if (v >= 0.9) return "Puiku ★★★★★";
@@ -116,33 +115,32 @@ export default function MapPage() {
   };
 
   const onEachFeature = useCallback((feature, layer) => {
-  const p = feature.properties || {};
+    const p = feature.properties || {};
 
-  const finalScore = p.final_score ?? null;
-  const forest = p.forest_pct ?? null;
-  const restrictions = p.restrictions_index ?? null;
-  const soil = p.soil_index ?? null;
-  const road = p.road_score ?? null;
+    const finalScore = p.final_score ?? null;
+    const forest = p.forest_pct ?? null;
+    const restrictions = p.restrictions_index ?? null;
+    const soil = p.soil_index ?? null;
+    const road = p.road_score ?? null;
 
-  layer.bindPopup(`
-    <b>${getLayerName(p.layer)}</b><br/><br/>
+    layer.bindPopup(`
+      <b>${getLayerName(p.layer)}</b><br/><br/>
+      <b>Investicinis indeksas:</b> ${format(finalScore)}<br/>
+      ${finalScore != null ? getIndexRating(finalScore) : "-"}<br/><br/>
 
-    <b>Investicinis indeksas:</b> ${format(finalScore)} | 
-    ${finalScore != null ? getIndexRating(finalScore) : "-"}<br/><br/>
+      <b>Miško dalis pateiktame plote:</b> ${forest != null ? (forest * 100).toFixed(2) + "%" : "-"
+      }<br/>
+      ${forest != null ? getForestRating(forest) : "-"}<br/><br/>
 
-    <b>Miško dalis pateiktame plote:</b> ${
-      forest != null ? (forest * 100).toFixed(2) + "%" : "-"
-    } | ${forest != null ? getForestRating(forest) : "-"}<br/><br/>
+      <b>Miško veiklos ribojimų indeksas:</b> ${format(restrictions)}<br/>
+      ${restrictions != null ? getRestrictionsRating(restrictions) : "-"}<br/><br/>
 
-    <b>Miško veiklos ribojimų indeksas:</b> ${format(restrictions)} | 
-    ${restrictions != null ? getRestrictionsRating(restrictions) : "-"}<br/><br/>
+      <b>Dirvožemio indeksas:</b> ${format(soil)}<br/>
+      Dirvožemio rodikliai ${soil != null ? getSoilRating(soil) : "-"}<br/><br/>
 
-    <b>Dirvožemio indeksas:</b> ${format(soil)} | 
-    Dirvožemio rodikliai ${soil != null ? getSoilRating(soil) : "-"}<br/><br/>
-
-    <b>Kelių indeksas:</b> ${format(road)} | 
-    Susisiekimas ${road != null ? getRoadRating(road) : "-"}
-  `);
+      <b>Kelių indeksas:</b> ${format(road)}<br/>
+      Susisiekimas ${road != null ? getRoadRating(road) : "-"}
+    `);
   }, []);
 
   const fetchGrid = async (layer, bbox, currentWeights) => {
@@ -168,10 +166,12 @@ export default function MapPage() {
     const bbox = `${minx},${miny},${maxx},${maxy}`;
     const preferredLayer = zoom >= 10 ? "detail" : "coarse";
     const requestKey = `${preferredLayer}|${bbox}|${currentWeights.restrictions}|${currentWeights.soil}|${currentWeights.road}`;
+
     if (requestKey === lastRequestKeyRef.current) return;
     lastRequestKeyRef.current = requestKey;
 
     setLoading(true);
+
     try {
       let data = await fetchGrid(preferredLayer, bbox, currentWeights);
       let usedLayer = preferredLayer;
@@ -185,21 +185,21 @@ export default function MapPage() {
       setFeatureCount(data?.features?.length || 0);
       setCurrentLayer(usedLayer);
 
-      // TOP3 vietos pagal final_score
       if (data?.features?.length) {
         const sorted = [...data.features]
-          .filter(f => f.properties?.final_score != null)
+          .filter((f) => f.properties?.final_score != null)
           .sort((a, b) => b.properties.final_score - a.properties.final_score)
           .slice(0, 3)
-          .map(f => ({
-            id: f.properties.cell_local_id,
+          .map((f, index) => ({
+            rank: index + 1,
             score: f.properties.final_score,
+            layer: f.properties.layer,
           }));
+
         setTop3(sorted);
       } else {
         setTop3([]);
       }
-
     } catch (err) {
       console.error("Fetch klaida:", err);
       setGeoData(null);
@@ -220,43 +220,87 @@ export default function MapPage() {
 
   const handleMouseMove = (latlng) => setCoords(latlng);
 
-  const handleWeightChange = (field, value) => {
-    const newValue = Number(value);
+  const applyWeightChange = (field, rawValue) => {
+    let newValue = Number(rawValue);
+
+    if (Number.isNaN(newValue)) newValue = 0;
+    if (newValue < 0) newValue = 0;
+    if (newValue > 100) newValue = 100;
+
     setWeights((prev) => {
-      const otherSum = prev.restrictions + prev.soil + prev.road - prev[field];
+      const otherSum =
+        prev.restrictions + prev.soil + prev.road - prev[field];
+
       const allowedValue = Math.min(newValue, 100 - otherSum);
-      return { ...prev, [field]: allowedValue };
+
+      return {
+        ...prev,
+        [field]: allowedValue < 0 ? 0 : allowedValue,
+      };
     });
   };
 
   useEffect(() => {
     if (!mapRef.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchLayerData(mapRef.current, weights), 300);
+
+    debounceRef.current = setTimeout(() => {
+      fetchLayerData(mapRef.current, weights);
+    }, 300);
   }, [weights, fetchLayerData]);
 
-  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   const weightSum = weights.restrictions + weights.soil + weights.road;
+
+  const weightLabels = {
+    restrictions: "Ribojimai",
+    soil: "Dirvožemis",
+    road: "Keliai",
+  };
 
   return (
     <div className="content">
       <div className="layout">
         <div className="map-column">
-          <div className="map-container">
-            <MapContainer center={[55.2, 23.9]} zoom={7} minZoom={6} preferCanvas style={{ height: "100%", width: "100%" }}>
-              <TileLayer attribution="© OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <MapWatcher onViewportChange={handleViewportChange} onMouseMove={handleMouseMove} />
-              {geoData?.features?.length > 0 && (
-                <GeoJSON
-                  key={`${currentLayer}-${featureCount}-${weights.restrictions}-${weights.soil}-${weights.road}`}
-                  data={geoData}
-                  style={styleFeature}
-                  onEachFeature={onEachFeature}
+          <div className="map-shell">
+
+
+            <div className="map-container">
+              <MapContainer
+                center={[55.2, 23.9]}
+                zoom={7}
+                minZoom={6}
+                preferCanvas
+                style={{ height: "100%", width: "100%" }}
+              >
+                <TileLayer
+                  attribution="© OpenStreetMap contributors"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-              )}
-              {coords && <div className="coords-box">{coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}</div>}
-            </MapContainer>
+                <MapWatcher
+                  onViewportChange={handleViewportChange}
+                  onMouseMove={handleMouseMove}
+                />
+                {geoData?.features?.length > 0 && (
+                  <GeoJSON
+                    key={`${currentLayer}-${featureCount}-${weights.restrictions}-${weights.soil}-${weights.road}`}
+                    data={geoData}
+                    style={styleFeature}
+                    onEachFeature={onEachFeature}
+                  />
+                )}
+                {coords && (
+                  <div className="coords-box">
+                    {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+                  </div>
+                )}
+              </MapContainer>
+            </div>
           </div>
         </div>
 
@@ -264,44 +308,118 @@ export default function MapPage() {
           <div className="card">
             <h3>Legenda</h3>
             <div className="legend">
-              <div className="legend-row"><span className="legend-box green" />Puiku (0.8–1.0)</div>
-              <div className="legend-row"><span className="legend-box light-green" />Gerai (0.6–0.8)</div>
-              <div className="legend-row"><span className="legend-box yellow" />Vidutiniškai (0.4–0.6)</div>
-              <div className="legend-row"><span className="legend-box orange" />Blogai (0.2–0.4)</div>
-              <div className="legend-row"><span className="legend-box red" />Labai blogai (0.0–0.2)</div>
+              <div className="legend-row">
+                <div className="legend-left">
+                  <span className="legend-box green" />
+                  <span>Puiku</span>
+                </div>
+                <span className="legend-score">0.8–1.0</span>
+              </div>
+
+              <div className="legend-row">
+                <div className="legend-left">
+                  <span className="legend-box light-green" />
+                  <span>Gerai</span>
+                </div>
+                <span className="legend-score">0.6–0.8</span>
+              </div>
+
+              <div className="legend-row">
+                <div className="legend-left">
+                  <span className="legend-box yellow" />
+                  <span>Vidutiniškai</span>
+                </div>
+                <span className="legend-score">0.4–0.6</span>
+              </div>
+
+              <div className="legend-row">
+                <div className="legend-left">
+                  <span className="legend-box orange" />
+                  <span>Blogai</span>
+                </div>
+                <span className="legend-score">0.2–0.4</span>
+              </div>
+
+              <div className="legend-row">
+                <div className="legend-left">
+                  <span className="legend-box red" />
+                  <span>Labai blogai</span>
+                </div>
+                <span className="legend-score">0.0–0.2</span>
+              </div>
             </div>
           </div>
 
           <div className="card status-card">
-            {loading ? "Kraunama..." : <>
-              <strong>{getLayerName(currentLayer)}</strong> | <b>Objektų kiekis:</b> <strong>{featureCount}</strong>
-            </>}
+            <h3>Būsena</h3>
+            <div className="status-main">
+              {loading ? "Kraunama duomenų ištrauka..." : "Duomenys paruošti peržiūrai"}
+            </div>
+            <div className="status-sub">
+              <span className="status-tag">{getLayerName(currentLayer)}</span>
+              <span className="status-tag">Objektų kiekis: {featureCount}</span>
+            </div>
           </div>
 
           <div className="card weights-panel">
             <h3>Naudotojo svoriai</h3>
-            {["restrictions","soil","road"].map(f => (
-              <label key={f}>
+
+            {["restrictions", "soil", "road"].map((field) => (
+              <div key={field} className="weight-block">
                 <div className="label-row">
-                  {f === "restrictions" ? "Ribojimai" : f === "soil" ? "Dirvožemis" : "Keliai"} <span>{weights[f]}</span>
+                  <span>{weightLabels[field]}</span>
                 </div>
-                <input type="range" min="0" max="100" value={weights[f]} onChange={(e) => handleWeightChange(f, e.target.value)} />
-              </label>
+
+                <div className="weight-input-wrap">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={weights[field]}
+                    onChange={(e) => applyWeightChange(field, e.target.value)}
+                  />
+
+                  <input
+                    className="weight-number"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={weights[field]}
+                    onChange={(e) => applyWeightChange(field, e.target.value)}
+                  />
+                </div>
+              </div>
             ))}
-            <div className="weight-sum">Svorių suma: <strong>{weightSum}</strong></div>
-            <div className="weight-note">Jei miško celėje mažiau nei 20%, ji nerodoma.</div>
+
+            <div className="weight-sum">
+              Svorių suma: <strong>{weightSum}</strong> / 100
+            </div>
+
+            <div className="weight-note">
+              Jei bandysi įvesti per didelę reikšmę, ji bus automatiškai apribota,
+              kad bendra suma neviršytų 100. Celės su mažesne nei 20 % miško dalimi
+              nerodomos.
+            </div>
           </div>
 
-          {/* Top3 vietos apačioje dešinėje */}
-          <div className="card top3-panel top3-simple">
+          <div className="card top3-panel">
             <h3>Top 3 vietos</h3>
+
             {top3.length === 0 ? (
-              <div className="top3-text">-</div>
+              <div className="top3-score">Šiuo metu nėra pakankamai duomenų.</div>
             ) : (
-              <div className="top3-text">
-                {top3.map((f, i) => (
-                  <div key={i}>
-                    {i + 1}. Investicinis indeksas: {f.score.toFixed(2)}
+              <div className="top3-list">
+                {top3.map((item) => (
+                  <div className="top3-item" key={item.rank}>
+                    <div className="top3-rank">{item.rank}</div>
+                    <div>
+                      <div className="top3-title">
+                        {item.rank} vieta · {getLayerName(item.layer)}
+                      </div>
+                      <div className="top3-score">
+                        Investicinis indeksas: <strong>{item.score.toFixed(2)}</strong>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
