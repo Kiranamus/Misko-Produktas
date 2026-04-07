@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Optional
-from app.services.query_service import get_metadata, query_grid, query_stats, query_distribution
+from ..services.query_service import get_metadata, query_grid, query_stats, query_distribution
 
-from app.config import (
+from ..config import (
     DEFAULT_COARSE_GRID_SIZE_M,
     DEFAULT_COARSE_TILE_SIZE_M,
     DEFAULT_DETAIL_GRID_SIZE_M,
@@ -10,8 +10,8 @@ from app.config import (
     DEFAULT_SIMPLIFY_TOL_M,
     MAX_WORKERS,
 )
-from app.services.pipeline import process_analysis, read_status
-from app.services.query_service import get_metadata, query_grid, query_stats
+from ..services.pipeline import process_analysis, read_status
+from ..services.query_service import get_metadata, query_grid, query_stats
 
 router = APIRouter()
 
@@ -121,3 +121,77 @@ layer: str = Query(default="coarse", pattern="^(coarse|detail)$"),
         return query_distribution(layer_name=layer)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+from sqlalchemy.orm import Session
+from ..models import User, Base
+from ..database import SessionLocal, engine
+from ..schemas import UserCreate, UserLogin
+from passlib.context import CryptContext
+from datetime import datetime, timedelta
+import secrets
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+# DB session dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# ---------------- REGISTER ----------------
+@router.post("/register")
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.username == user.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    hashed_password = pwd_context.hash(user.password)
+    new_user = User(username=user.username, password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    return {"message": "User created"}
+
+# ---------------- LOGIN ----------------
+@router.post("/login")
+def login(user: UserLogin, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.username == user.username).first()
+    if not existing_user or not pwd_context.verify(user.password, existing_user.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"message": "Login successful"}
+
+# ---------------- FORGOT PASSWORD ----------------
+@router.post("/forgot-password")
+def forgot_password(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    token = secrets.token_urlsafe(32)
+    expire_time = datetime.utcnow() + timedelta(minutes=15)
+
+    user.reset_token = token
+    user.reset_token_expire = expire_time
+    db.commit()
+
+    return {"message": "Reset token generated", "token": token}  # only for testing
+
+# ---------------- RESET PASSWORD ----------------
+@router.post("/reset-password")
+def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_token == token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid token")
+    if datetime.utcnow() > user.reset_token_expire:
+        raise HTTPException(status_code=400, detail="Token expired")
+
+    user.password = pwd_context.hash(new_password)
+    user.reset_token = None
+    user.reset_token_expire = None
+    db.commit()
+
+    return {"message": "Password reset successful"}

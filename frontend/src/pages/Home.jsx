@@ -1,12 +1,45 @@
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { FaArrowRight, FaMapMarkedAlt, FaLeaf, FaLayerGroup } from "react-icons/fa";
+import { useAuth } from "../context/AuthContext";
 import "./Home.css";
 
 export default function Home() {
   const navigate = useNavigate();
+  const { isAuthenticated, logout } = useAuth();
 
   return (
     <div className="home-page">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <NavLink to="/" className="brand">
+            <div className="brand-mark">F</div>
+            <div className="brand-text">
+              <span className="brand-title">ForestForYou</span>
+              <span className="brand-subtitle">
+                Miškininkystės analizė ir investavimas
+              </span>
+            </div>
+          </NavLink>
+
+          <nav className="topbar-nav">
+            {isAuthenticated && (
+              <NavLink to="/map" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>Žemėlapis</NavLink>
+            )}
+            {!isAuthenticated ? (
+              <>
+                <NavLink to="/register" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>Registruotis</NavLink>
+                <NavLink to="/login" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>Prisijungti</NavLink>
+              </>
+            ) : (
+              <span onClick={() => { logout(); navigate("/"); }} className="nav-link" style={{ cursor: 'pointer' }}>
+                Atsijungti
+              </span>
+            )}
+            <NavLink to="/" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>Pagrindinis</NavLink>
+          </nav>
+        </div>
+      </header>
+
       <div className="home-bg home-bg-1"></div>
       <div className="home-bg home-bg-2"></div>
       <div className="home-bg home-bg-3"></div>
@@ -32,25 +65,18 @@ export default function Home() {
             koreguoti vertinimo svorius pagal savo tikslus.
           </p>
 
-          <div className="hero-actions">
-            <button
-              className="primary-btn"
-              onClick={() => navigate("/map")}
-            >
-              <span>Atverti investavimo žemėlapį</span>
-              <FaArrowRight />
-            </button>
+          <p className="hero-note">
+            Sprendimas orientuotas į duomenimis pagrįstą pasirinkimą:
+            naudotojas mato prioritetines teritorijas žemėlapyje ir gali
+            koreguoti vertinimo svorius pagal savo tikslus.
+          </p>
 
-            <button
-              className="secondary-btn"
-              onClick={() => {
-                const section = document.getElementById("about-project");
-                section?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              Sužinoti daugiau
+          <div className="hero-actions">
+            <button className="primary-btn" onClick={() => navigate("/map")}>
+              Peržiūrėti investicinį žemėlapį <FaArrowRight />
             </button>
           </div>
+
 
           <div className="hero-stats">
             <div className="stat-card">
@@ -126,13 +152,13 @@ export default function Home() {
 
         <div className="info-card team-card">
           <h3>Komanda K603</h3>
-          <div className="team-list">           
+          <div className="team-list">
             <span>Matas Kučas</span>
             <span>Mindaugas Matulaitis</span>
             <span>Giedrė Jansonaitė</span>
             <span>Simas Janulynas</span>
             <span>Kastautas Maižvila</span>
-            <span>Ugnius Sasnauskas</span>      
+            <span>Ugnius Sasnauskas</span>
           </div>
         </div>
 
