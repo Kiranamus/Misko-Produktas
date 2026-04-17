@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { NavLink, useNavigate, Navigate } from "react-router-dom";
 import { MapContainer, TileLayer, GeoJSON, useMapEvents } from "react-leaflet";
 import proj4 from "proj4";
 import "leaflet/dist/leaflet.css";
 import "./MapPage.css";
+import { useAuth } from "../context/AuthContext";
 
-const API_BASE = "http://127.0.0.1:8000/api";
+const API_BASE = "/api";
 
 proj4.defs("EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs");
 proj4.defs(
@@ -34,6 +36,14 @@ export default function MapPage() {
   const [featureCount, setFeatureCount] = useState(0);
   const [currentLayer, setCurrentLayer] = useState("coarse");
   const [coords, setCoords] = useState(null);
+  const [hoveredFeature, setHoveredFeature] = useState(null);
+  const [selectedFeature, setSelectedFeature] = useState(null);
+  const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
   const [weights, setWeights] = useState({
     restrictions: 40,
@@ -49,21 +59,35 @@ export default function MapPage() {
 
   const styleFeature = useCallback((feature) => {
     const score = feature?.properties?.final_score ?? 0;
-    let fillColor;
 
+    let fillColor;
     if (score > 0.8) fillColor = "#245a43";
     else if (score >= 0.6) fillColor = "#5d9d78";
     else if (score >= 0.4) fillColor = "#d8b94c";
     else if (score >= 0.2) fillColor = "#cf8646";
     else fillColor = "#b85454";
 
+    let weight = 0.3;
+    let fillOpacity = 0.72;
+
+    // Increase size for hovered or selected
+    if (feature === hoveredFeature) {
+      weight = 2;
+      fillOpacity = 0.8;
+    }
+    if (feature === selectedFeature) {
+      weight = 3;
+      fillOpacity = 0.85;
+    }
+
     return {
       color: "#ffffff",
-      weight: 0.3,
+      weight,
       fillColor,
-      fillOpacity: 0.72,
+      fillOpacity,
     };
-  }, []);
+  }, [hoveredFeature, selectedFeature]);
+
 
   const getLayerName = (layer) => {
     if (layer === "coarse") return "Abstraktus rodymas";
@@ -122,6 +146,12 @@ export default function MapPage() {
     const restrictions = p.restrictions_index ?? null;
     const soil = p.soil_index ?? null;
     const road = p.road_score ?? null;
+
+    layer.on({
+      mouseover: () => setHoveredFeature(feature),
+      mouseout: () => setHoveredFeature(null),
+      click: () => setSelectedFeature(feature),
+    });
 
     layer.bindPopup(`
       <b>${getLayerName(p.layer)}</b><br/><br/>
@@ -265,6 +295,38 @@ export default function MapPage() {
 
   return (
     <div className="content">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <NavLink to="/" className="brand">
+            <div className="brand-mark">F</div>
+            <div className="brand-text">
+              <span className="brand-title">ForestForYou</span>
+              <span className="brand-subtitle">
+                Miškininkystės analizė ir investavimas
+              </span>
+            </div>
+          </NavLink>
+
+          <nav className="topbar-nav">
+            {isAuthenticated && (
+              <NavLink to="/map" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>Žemėlapis</NavLink>
+            )}
+
+            {!isAuthenticated ? (
+              <>
+                <NavLink to="/register" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>Registruotis</NavLink>
+                <NavLink to="/login" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>Prisijungti</NavLink>
+              </>
+            ) : (
+              <span onClick={() => { logout(); navigate("/"); }} className="nav-link" style={{ cursor: 'pointer' }}>
+                Atsijungti
+              </span>
+            )}
+            <NavLink to="/" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>Pagrindinis</NavLink>
+          </nav>
+        </div>
+      </header>
+
       <div className="layout">
         <div className="map-column">
           <div className="map-shell">
