@@ -71,6 +71,89 @@ def get_metadata(layer_name: str) -> dict:
         return json.load(f)
 
 
+def resolve_analysis_sizes(
+    layer_name: str,
+    grid_size: Optional[int],
+    tile_size: Optional[int],
+) -> tuple[int, int]:
+    if grid_size is None:
+        grid_size = (
+            DEFAULT_DETAIL_GRID_SIZE_M if layer_name == "detail" else DEFAULT_COARSE_GRID_SIZE_M
+        )
+    if tile_size is None:
+        tile_size = (
+            DEFAULT_DETAIL_TILE_SIZE_M if layer_name == "detail" else DEFAULT_COARSE_TILE_SIZE_M
+        )
+    return grid_size, tile_size
+
+
+def clear_analysis_cache(layer_name: str) -> None:
+    clear_old_tiles(layer_name)
+    for path in [
+        get_tile_index_path(layer_name),
+        get_tile_index_geojson_path(layer_name),
+        get_metadata_path(layer_name),
+    ]:
+        if path.exists():
+            path.unlink()
+
+
+def filter_area_by_bbox(area: gpd.GeoDataFrame, bbox: Optional[str]) -> gpd.GeoDataFrame:
+    if not bbox:
+        return area
+
+    bounds = parse_bbox_string(bbox)
+    bbox_geom = box(*bounds)
+    return area[area.intersects(bbox_geom)].copy()
+
+
+def should_skip_tile_processing(layers: dict[str, gpd.GeoDataFrame]) -> bool:
+    return all(layer.empty for layer in layers.values())
+
+
+def apply_score_transforms(grid: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    grid = grid.copy()
+    grid["soil_index"] = np.power(
+        grid["soil_index"],
+        (1 - grid["soil_index"]) * 5,
+    )
+    grid["road_score"] = np.power(
+        grid["road_score"],
+        (1 - grid["road_score"]) * 10,
+    )
+    return grid
+
+
+def build_analysis_metadata(
+    layer_name: str,
+    grid_size: int,
+    tile_size: int,
+    simplify_tol_m: float,
+    max_workers: int,
+    tile_index: gpd.GeoDataFrame,
+    tile_index_storage: str,
+    total_seconds: float,
+    bbox: Optional[str],
+) -> dict:
+    return {
+        "ok": True,
+        "layer": layer_name,
+        "grid_size_m": grid_size,
+        "tile_size_m": tile_size,
+        "simplify_tol_m": simplify_tol_m,
+        "max_workers": max_workers,
+        "tiles_total": int(len(tile_index)),
+        "cells_total": int(tile_index["n_cells"].sum()),
+        "green_total": int(tile_index["green_count"].sum()),
+        "yellow_total": int(tile_index["yellow_count"].sum()),
+        "red_total": int(tile_index["red_count"].sum()),
+        "tile_index_storage": tile_index_storage,
+        "total_seconds": round(total_seconds, 2),
+        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "bbox": bbox,
+    }
+
+
 # IO helpers
 def read_layer(gdb_path: Path, layer_name: str, bbox_bounds=None, columns=None) -> gpd.GeoDataFrame:
     read_kwargs = {"engine": "pyogrio", "bbox": bbox_bounds}
@@ -849,7 +932,18 @@ def process_tile(tile_bounds, layer_name, grid_size, simplify_tol_m):
         layers["n2000_dm"],
     )
 
-    if area.empty and forest.empty and n2000.empty and admin_2022.empty and soil.empty and soil_profile.empty and clc.empty and roads.empty:
+    if should_skip_tile_processing(
+        {
+            "area": area,
+            "forest": forest,
+            "n2000": n2000,
+            "admin_2022": admin_2022,
+            "soil": soil,
+            "soil_profile": soil_profile,
+            "clc": clc,
+            "roads": roads,
+        }
+    ):
         return None
 
     grid = build_grid_for_bounds(tile_bounds, grid_size)
@@ -881,17 +975,8 @@ def process_tile(tile_bounds, layer_name, grid_size, simplify_tol_m):
     grid = aggregate_profile_scores(grid, soil_profile)
     grid = build_soil_index(grid)
 
-    grid["soil_index"] = np.power(
-        grid["soil_index"],
-        (1 - grid["soil_index"]) * 5
-    )
-
     grid["road_score"] = calculate_road_score(grid, roads)
-
-    grid["road_score"] = np.power(
-    grid["road_score"],
-    (1 - grid["road_score"]) * 10
-    )
+    grid = apply_score_transforms(grid)
     grid = calculate_restrictions_index(grid)
 
     grid = assign_dominant_forest_type(grid, clc)
@@ -929,26 +1014,13 @@ def process_analysis(
     clear_cache: bool,
     bbox: Optional[str],
 ) -> dict:
-
-    if grid_size is None:
-        grid_size = DEFAULT_DETAIL_GRID_SIZE_M if layer_name == "detail" else DEFAULT_COARSE_GRID_SIZE_M
-
-    if tile_size is None:
-        tile_size = DEFAULT_DETAIL_TILE_SIZE_M if layer_name == "detail" else DEFAULT_COARSE_TILE_SIZE_M
+    grid_size, tile_size = resolve_analysis_sizes(layer_name, grid_size, tile_size)
 
     t0 = time.perf_counter()
     write_status(layer_name, "running", "Reading area layer...")
 
     if clear_cache:
-        clear_old_tiles(layer_name)
-
-        for p in [
-            get_tile_index_path(layer_name),
-            get_tile_index_geojson_path(layer_name),
-            get_metadata_path(layer_name),
-        ]:
-            if p.exists():
-                p.unlink()
+        clear_analysis_cache(layer_name)
 
     area = read_layer(GDB_VMT, LAYER_AREA)
     area = fix_invalid(simplify_geoms(area, simplify_tol_m))
@@ -956,10 +1028,7 @@ def process_analysis(
     forest = read_layer(GDB_VMT, LAYER_FOREST)
     forest = fix_invalid(simplify_geoms(forest, simplify_tol_m))
 
-    if bbox:
-        bounds = parse_bbox_string(bbox)
-        bbox_geom = box(*bounds)
-        area = area[area.intersects(bbox_geom)].copy()
+    area = filter_area_by_bbox(area, bbox)
 
     if area.empty:
         write_status(layer_name, "error", "No area after bbox filtering.")
@@ -1013,23 +1082,17 @@ def process_analysis(
         tile_index.to_file(get_tile_index_geojson_path(layer_name), driver="GeoJSON")
         tile_index_storage = "geojson"
 
-    metadata = {
-        "ok": True,
-        "layer": layer_name,
-        "grid_size_m": grid_size,
-        "tile_size_m": tile_size,
-        "simplify_tol_m": simplify_tol_m,
-        "max_workers": max_workers,
-        "tiles_total": int(len(tile_index)),
-        "cells_total": int(tile_index["n_cells"].sum()),
-        "green_total": int(tile_index["green_count"].sum()),
-        "yellow_total": int(tile_index["yellow_count"].sum()),
-        "red_total": int(tile_index["red_count"].sum()),
-        "tile_index_storage": tile_index_storage,
-        "total_seconds": round(time.perf_counter() - t0, 2),
-        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "bbox": bbox,
-    }
+    metadata = build_analysis_metadata(
+        layer_name=layer_name,
+        grid_size=grid_size,
+        tile_size=tile_size,
+        simplify_tol_m=simplify_tol_m,
+        max_workers=max_workers,
+        tile_index=tile_index,
+        tile_index_storage=tile_index_storage,
+        total_seconds=time.perf_counter() - t0,
+        bbox=bbox,
+    )
 
     with open(get_metadata_path(layer_name), "w", encoding="utf-8") as f:
         json.dump(metadata, f, ensure_ascii=False, indent=2)

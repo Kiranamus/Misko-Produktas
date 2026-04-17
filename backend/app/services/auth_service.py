@@ -25,6 +25,34 @@ from ..schemas_auth import (
 INVALID_TOKEN_ERROR = HTTPException(status_code=401, detail="Invalid token")
 
 
+def build_authenticated_user_payload(user: User) -> dict:
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.full_name,
+    }
+
+
+def build_login_response(user: User) -> dict:
+    return {
+        "access_token": create_access_token(data={"sub": user.username}),
+        "token_type": "bearer",
+        "user": build_authenticated_user_payload(user),
+    }
+
+
+def assign_password_reset_token(user: User) -> str:
+    user.reset_token = create_random_token()
+    user.reset_token_expires = datetime.utcnow() + timedelta(hours=24)
+    return user.reset_token
+
+
+def clear_password_reset_state(user: User, new_password: str) -> None:
+    user.hashed_password = get_password_hash(new_password)
+    user.reset_token = None
+    user.reset_token_expires = None
+
+
 def decode_username_from_token(token: str) -> str:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -86,15 +114,7 @@ def login_user(db: Session, user_data: LoginRequest) -> dict:
             detail="Invalid email or password",
         )
 
-    return {
-        "access_token": create_access_token(data={"sub": user.username}),
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.full_name,
-        },
-    }
+    return build_login_response(user)
 
 
 def create_password_reset_token(
@@ -104,11 +124,10 @@ def create_password_reset_token(
     if not user:
         return ForgotPasswordResponse(token="user_not_found_dummy_token")
 
-    user.reset_token = create_random_token()
-    user.reset_token_expires = datetime.utcnow() + timedelta(hours=24)
+    token = assign_password_reset_token(user)
     db.commit()
 
-    return ForgotPasswordResponse(token=user.reset_token)
+    return ForgotPasswordResponse(token=token)
 
 
 def reset_user_password(db: Session, request: ResetPasswordRequest) -> dict:
@@ -123,9 +142,7 @@ def reset_user_password(db: Session, request: ResetPasswordRequest) -> dict:
             detail="Invalid or expired token",
         )
 
-    user.hashed_password = get_password_hash(request.new_password)
-    user.reset_token = None
-    user.reset_token_expires = None
+    clear_password_reset_state(user, request.new_password)
     db.commit()
 
     return {"message": "Password reset successfully"}
