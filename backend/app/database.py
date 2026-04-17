@@ -7,7 +7,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+from .db_config import DATABASE_URL as DEFAULT_DATABASE_URL
+
+DATABASE_URL = os.getenv("DATABASE_URL") or DEFAULT_DATABASE_URL
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "Database configuration is missing. Set DATABASE_URL in the environment "
+        "or define it in app/db_config.py."
+    )
 
 engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
