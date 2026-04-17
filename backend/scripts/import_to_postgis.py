@@ -28,13 +28,18 @@ def ensure_database_columns() -> None:
                 id serial PRIMARY KEY,
                 layer text NOT NULL,
                 forest_pct double precision,
-                valstybinis_pct double precision,
-                n2000_pct double precision,
-                n2000_index double precision,
-                vmt_index double precision,
+                tex_score double precision,
+                dra_score double precision,
+                ph_score double precision,
+                reljef_score double precision,
+                akmen_score double precision,
+                soil_index_raw double precision,
                 restrictions_index double precision,
                 soil_index double precision,
                 road_score double precision,
+                forest_type text,
+                municipality text,
+                county text,
                 geometry geometry(Geometry, 3346)
             )
         """))
@@ -88,11 +93,8 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
         legacy_rename = {
             "restr_pct": "restrictions_index",
             "soil_pct": "soil_index",
-            "vmt_pct": "vmt_index",
-            "n2000_idx": "n2000_index",
-            "n2000_prc": "n2000_pct",
-            "valstybinis_prc": "valstybinis_pct",
             "road_prc": "road_score",
+            "forest_type_name": "forest_type",
         }
 
         for old_col, new_col in legacy_rename.items():
@@ -102,13 +104,18 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
         keep_cols = [
             "layer",
             "forest_pct",
-            "valstybinis_pct",
-            "n2000_pct",
-            "n2000_index",
-            "vmt_index",
+            "tex_score",
+            "dra_score",
+            "ph_score",
+            "reljef_score",
+            "akmen_score",
+            "soil_index_raw",
             "restrictions_index",
             "soil_index",
             "road_score",
+            "forest_type",
+            "municipality",
+            "county",
             "geometry",
         ]
 
@@ -117,13 +124,18 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
 
         defaults = {
             "forest_pct": 0.0,
-            "valstybinis_pct": 0.0,
-            "n2000_pct": 0.0,
-            "n2000_index": 0.0,
-            "vmt_index": 0.0,
+            "tex_score": 0.0,
+            "dra_score": 0.0,
+            "ph_score": 0.0,
+            "reljef_score": 0.0,
+            "akmen_score": 0.0,
+            "soil_index_raw": 0.0,
             "restrictions_index": 0.0,
             "soil_index": 0.0,
             "road_score": 0.0,
+            "forest_type": None,
+            "municipality": None,
+            "county": None,
         }
 
         for col, default in defaults.items():
@@ -132,10 +144,12 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
 
         numeric_cols = [
             "forest_pct",
-            "valstybinis_pct",
-            "n2000_pct",
-            "n2000_index",
-            "vmt_index",
+            "tex_score",
+            "dra_score",
+            "ph_score",
+            "reljef_score",
+            "akmen_score",
+            "soil_index_raw",
             "restrictions_index",
             "soil_index",
             "road_score",
@@ -148,13 +162,18 @@ def load_tile_files(folder: Path, layer_name: str) -> gpd.GeoDataFrame:
             [
                 "layer",
                 "forest_pct",
-                "valstybinis_pct",
-                "n2000_pct",
-                "n2000_index",
-                "vmt_index",
+                "tex_score",
+                "dra_score",
+                "ph_score",
+                "reljef_score",
+                "akmen_score",
+                "soil_index_raw",
                 "restrictions_index",
                 "soil_index",
                 "road_score",
+                "forest_type",
+                "municipality",
+                "county",
                 "geometry",
             ]
         ].copy()

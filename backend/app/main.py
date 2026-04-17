@@ -1,26 +1,25 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from datetime import datetime, timedelta
-import secrets
-import os
-from dotenv import load_dotenv
-
-try:
-    from jose import JWTError, jwt
-except ImportError:
-    print("ERROR: python-jose not installed. Run: pip install python-jose[cryptography]")
-    raise
+from typing import Optional
 
 from .database import get_db, User, init_db
-from .auth import verify_password, get_password_hash, create_access_token, create_random_token
-
-load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this-in-production")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
+from .schemas_auth import (
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    LoginRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+)
+from .services.auth_service import (
+    create_password_reset_token,
+    get_current_user_from_token,
+    login_user,
+    register_user,
+    reset_user_password,
+)
+from .services.query_service import get_counties, query_grid
 
 app = FastAPI()
 
@@ -36,123 +35,26 @@ app.add_middleware(
 async def startup_event():
     init_db()
 
-class RegisterRequest(BaseModel):
-    name: str
-    email: str
-    password: str
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class ForgotPasswordRequest(BaseModel):
-    username: str
-
-class ForgotPasswordResponse(BaseModel):
-    token: str
-
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
-
 security = HTTPBearer()
 
 def get_current_user(token: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        user = db.query(User).filter(User.username == username).first()
-        if user is None:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    return get_current_user_from_token(db, token.credentials)
 
 @app.post("/register")
 async def register(user_data: RegisterRequest, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
-    
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this email already exists"
-        )
-    
-    hashed_password = get_password_hash(user_data.password)
-    db_user = User(
-        username=user_data.email,
-        email=user_data.email,
-        full_name=user_data.name,
-        hashed_password=hashed_password
-    )
-    
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    
-    return {"message": "User created successfully", "user_id": db_user.id}
+    return register_user(db, user_data)
 
 @app.post("/login")
 async def login(user_data: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        (User.username == user_data.username) | (User.email == user_data.username)
-    ).first()
-    
-    if not user or not verify_password(user_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
-        )
-    
-    access_token = create_access_token(data={"sub": user.username})
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "name": user.full_name
-        }
-    }
+    return login_user(db, user_data)
 
 @app.post("/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        (User.username == request.username) | (User.email == request.username)
-    ).first()
-    
-    if not user:
-        return ForgotPasswordResponse(token="user_not_found_dummy_token")
-    
-    reset_token = create_random_token()
-    user.reset_token = reset_token
-    user.reset_token_expires = datetime.utcnow() + timedelta(hours=24)
-    db.commit()
-    
-    return ForgotPasswordResponse(token=reset_token)
+    return create_password_reset_token(db, request)
 
 @app.post("/reset-password")
 async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        User.reset_token == request.token,
-        User.reset_token_expires > datetime.utcnow()
-    ).first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired token"
-        )
-    
-    user.hashed_password = get_password_hash(request.new_password)
-    user.reset_token = None
-    user.reset_token_expires = None
-    db.commit()
-    
-    return {"message": "Password reset successfully"}
+    return reset_user_password(db, request)
 
 @app.get("/protected")
 async def protected_route(current_user: User = Depends(get_current_user)):
@@ -161,6 +63,40 @@ async def protected_route(current_user: User = Depends(get_current_user)):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "database": "postgresql"}
+
+@app.get("/grid")
+async def grid(
+    layer: str = Query(default="coarse", pattern="^(coarse|detail)$"),
+    bbox: Optional[str] = Query(default=None, description="EPSG:3346 bbox: minx,miny,maxx,maxy"),
+    county: Optional[str] = None,
+    min_score: Optional[float] = None,
+    max_score: Optional[float] = None,
+    limit: Optional[int] = None,
+    w_restr: float = 40,
+    w_soil: float = 30,
+    w_road: float = 30,
+):
+    try:
+        return query_grid(
+            layer_name=layer,
+            bbox=bbox,
+            county=county,
+            min_score=min_score,
+            max_score=max_score,
+            limit=limit,
+            w_restr=w_restr,
+            w_soil=w_soil,
+            w_road=w_road,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/counties")
+async def counties():
+    try:
+        return {"items": get_counties()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

@@ -27,13 +27,16 @@ print(
         [
             c for c in [
                 "forest_pct",
-                "valstybinis_pct",
-                "n2000_pct",
-                "n2000_index",
-                "vmt_index",
+                "tex_score",
+                "dra_score",
+                "ph_score",
+                "reljef_score",
+                "akmen_score",
+                "soil_index_raw",
                 "restrictions_index",
                 "soil_index",
                 "road_score",
+                "forest_type",
                 "final_score",
             ] if c in gdf.columns
         ]
@@ -43,10 +46,12 @@ print(
 print("\nDescribe:")
 for col in [
     "forest_pct",
-    "valstybinis_pct",
-    "n2000_pct",
-    "n2000_index",
-    "vmt_index",
+    "tex_score",
+    "dra_score",
+    "ph_score",
+    "reljef_score",
+    "akmen_score",
+    "soil_index_raw",
     "restrictions_index",
     "soil_index",
     "road_score",

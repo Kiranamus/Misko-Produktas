@@ -8,23 +8,31 @@ RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 EXPORTS_DIR = DATA_DIR / "exports"
 
+# Cache directories
 CACHE_COARSE_DIR = PROCESSED_DIR / "coarse"
 CACHE_DETAIL_DIR = PROCESSED_DIR / "detail"
 
 COARSE_TILES_DIR = CACHE_COARSE_DIR / "tiles"
 DETAIL_TILES_DIR = CACHE_DETAIL_DIR / "tiles"
 
+# Source datasets
 GDB_VMT = RAW_DIR / "VMT_DB" / "vmt_db.gdb"
 GDB_NATURA = RAW_DIR / "VSTT-NATURA-miskai" / "Natura2000_misku_ribojimai.gdb"
 GDB_DIRV = RAW_DIR / "Dirv_DR10LT" / "Dirv_DR10LT" / "DIRV_DB10LT.gdb"
 SHP_ROADS = RAW_DIR / "ValstybiniuKeliuTinklas_2025" / "ValstybiniuKeliuTinklas_2025.shp"
+GDB_CLC = RAW_DIR / "Misku_tipai" / "CLC_CHA.gdb"
+GDB_STATS = RAW_DIR / "Bendroji_statistika" / "Bendroji_statistika.gdb"
 
+# Source layers
 LAYER_AREA = "Valstybines_reiksmes_misku_plotu_ribos"
 LAYER_FOREST = "Misku_pogrupiai"
-LAYER_RESTR = "NM_teritorijos"
 LAYER_DIRV = os.getenv("LAYER_DIRV", "konturas")
+LAYER_DIRV_PROFILE = os.getenv("LAYER_DIRV_PROFILE", "profilis")
 LAYER_ROADS = os.getenv("LAYER_ROADS", "")
+LAYER_CLC = os.getenv("LAYER_CLC", "U2018_CLC2018_V2020_20u1")
+LAYER_MUNICIPALITY_2022 = os.getenv("LAYER_MUNICIPALITY_2022", "SAV_gyventoju_statistika_2022")
 
+# CRS and defaults
 CRS_METRIC = "EPSG:3346"
 CRS_WEB = "EPSG:4326"
 
