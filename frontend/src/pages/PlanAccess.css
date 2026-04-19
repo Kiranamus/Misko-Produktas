@@ -47,6 +47,24 @@
   line-height: 1.6;
 }
 
+.plan-price {
+  margin-top: 16px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(37, 92, 66, 0.1);
+}
+
+.price-amount {
+  font-size: 32px;
+  font-weight: 800;
+  color: #2f6b4d;
+}
+
+.price-period {
+  font-size: 14px;
+  color: #687d71;
+  margin-left: 4px;
+}
+
 .municipality-select-block {
   display: grid;
   gap: 10px;
@@ -72,16 +90,200 @@
   display: flex;
   gap: 12px;
   margin-top: 28px;
+  justify-content: center;
+}
+
+.plan-actions .primary-btn,
+.plan-actions .secondary-btn {
+  min-width: 180px;
+  text-align: center;
+  justify-content: center;
+}
+
+.primary-btn,
+.secondary-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+}
+
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #255c42, #4a8f69);
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(37, 92, 66, 0.22);
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(37, 92, 66, 0.28);
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.78);
+  color: #234f3b;
+  border: 1px solid rgba(37, 92, 66, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.secondary-btn:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.stripe-card-element {
+  margin-bottom: 16px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  transition: border-color 0.2s ease;
+  width: 100%;
+}
+
+.stripe-card-element:hover {
+  border-color: #2f6b4d;
+}
+
+.stripe-card-element .StripeElement {
+  width: 100%;
+  padding: 8px 0;
+}
+
+.stripe-error-message {
+  color: #b85454;
+  font-size: 14px;
+  margin-bottom: 12px;
+  text-align: center;
+  padding: 8px;
+  background: rgba(184, 84, 84, 0.1);
+  border-radius: 6px;
+}
+
+.stripe-button-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.stripe-pay-btn {
+  min-width: 180px;
+  width: auto;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #2f6b4d, #5f9470);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stripe-pay-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(47, 107, 77, 0.3);
+}
+
+.stripe-pay-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.stripe-error-container {
+  color: #b85454;
+  text-align: center;
+  padding: 20px;
+  background: rgba(184, 84, 84, 0.1);
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.stripe-payment-wrapper {
+  margin: 20px 0;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  width: 100%;
+}
+
+.stripe-payment-wrapper form {
+  width: 100%;
+}
+
+.payment-success {
+  text-align: center;
+  padding: 20px;
+  background: rgba(47, 107, 77, 0.1);
+  border-radius: 12px;
+  margin: 16px 0;
+}
+
+.payment-success .primary-btn {
+  margin-top: 12px;
+  min-width: 180px;
+}
+
+.payment-error {
+  text-align: center;
+  padding: 12px;
+  background: rgba(184, 84, 84, 0.1);
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.payment-error p {
+  color: #b85454;
+  font-size: 14px;
+  margin: 0;
 }
 
 @media (max-width: 760px) {
   .plan-actions {
     flex-direction: column;
+    align-items: center;
   }
 
   .plan-actions .primary-btn,
-  .plan-actions .secondary-btn {
+  .plan-actions .secondary-btn,
+  .stripe-pay-btn {
     width: 100%;
-    justify-content: center;
+    max-width: 300px;
+  }
+
+  .stripe-button-wrapper {
+    width: 100%;
+  }
+
+  .stripe-pay-btn {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .plan-card h1 {
+    font-size: 24px;
+  }
+
+  .checkout-card h2 {
+    font-size: 20px;
+  }
+
+  .plan-card,
+  .checkout-card {
+    padding: 20px;
+  }
+
+  .price-amount {
+    font-size: 28px;
+  }
+
+  .stripe-card-element {
+    padding: 12px;
   }
 }

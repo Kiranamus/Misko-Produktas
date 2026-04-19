@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import PageTopbar from "../components/PageTopbar";
+import { useAuth } from "../context/AuthContext";
 import "./Home.css";
 
 const plans = [
@@ -25,6 +26,7 @@ const plans = [
 
 export default function Home() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   return (
     <div className="home-page">
@@ -70,7 +72,16 @@ export default function Home() {
               <span className="plan-chip">Planas</span>
               <h3>{plan.title}</h3>
               <p>{plan.description}</p>
-              <button className="primary-btn" onClick={() => navigate(`/plan-access?plan=${plan.id}`)}>
+              <button
+                className="primary-btn"
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    navigate("/login");
+                  } else {
+                    navigate(`/plan-access?plan=${plan.id}`);
+                  }
+                }}
+              >
                 Pasirinkti
               </button>
             </article>
