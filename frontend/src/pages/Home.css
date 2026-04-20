@@ -122,37 +122,142 @@
   color: #173a2d;
 }
 
+/* Plans Section */
 .plans-section {
+  margin-top: 48px;
+}
+
+.plans-title {
+  text-align: center;
+  font-size: 36px;
+  color: #173a2d;
+  margin-bottom: 32px;
+  font-weight: 800;
+}
+
+.plans-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 22px;
+  gap: 24px;
 }
 
 .plan-card {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 320px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(37, 92, 66, 0.08);
   border-radius: 24px;
-  padding: 24px;
+  padding: 28px;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.07);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.plan-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 48px rgba(28, 51, 39, 0.12);
+}
+
+/* Purchased plan styles */
+.plan-card.purchased {
+  opacity: 0.75;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.plan-card.purchased:hover {
+  transform: none;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.07);
+}
+
+.plan-card.purchased .plan-chip {
+  background: #2f6b4d;
+  color: white;
+  border: none;
 }
 
 .plan-card h3 {
   margin: 16px 0 12px;
-  font-size: 28px;
-  line-height: 1.2;
+  font-size: 24px;
+  line-height: 1.3;
   color: #173b2c;
 }
 
+.plan-card.purchased h3 {
+  color: #8ba89a;
+}
+
+.plan-card p {
+  flex-grow: 1;
+  margin-bottom: 20px;
+}
+
+.plan-price {
+  font-size: 28px;
+  font-weight: 800;
+  color: #2f6b4d;
+  margin-bottom: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(37, 92, 66, 0.1);
+}
+
+.plan-card.purchased .plan-price {
+  color: #8ba89a;
+}
+
+/* Button styles */
+.primary-btn,
+.disabled-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #2f6b4d, #5f9470);
+  color: white;
+}
+
+.primary-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(47, 107, 77, 0.3);
+}
+
+.disabled-btn {
+  background: #d4dcd7;
+  color: #8ba89a;
+  cursor: not-allowed;
+}
+
+.disabled-btn:hover {
+  transform: none;
+}
+
+/* Team Section - Original Simple Style */
 .team-section {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 18px;
-  margin-top: 22px;
+  margin-top: 32px;
+}
+
+.team-card,
+.mentor-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  padding: 28px;
+  border: 1px solid rgba(37, 92, 66, 0.08);
+}
+
+.team-card h2,
+.mentor-card h2 {
+  margin: 0 0 12px;
+  font-size: 28px;
+  color: #173a2d;
 }
 
 .team-list {
@@ -178,10 +283,19 @@
   font-weight: 700;
 }
 
+/* Responsive Design */
 @media (max-width: 980px) {
-  .plans-section,
+  .plans-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
   .team-section {
     grid-template-columns: 1fr;
+  }
+  
+  .plans-title {
+    font-size: 28px;
   }
 }
 
@@ -212,6 +326,18 @@
   .about-card h2,
   .team-card h2,
   .mentor-card h2 {
-    font-size: 23px;
+    font-size: 22px;
+  }
+  
+  .plan-price {
+    font-size: 24px;
+  }
+  
+  .team-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .team-list span {
+    text-align: center;
   }
 }

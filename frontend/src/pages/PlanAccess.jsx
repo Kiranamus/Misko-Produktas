@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import PageTopbar from "../components/PageTopbar";
 import StripePayment from "../components/StripePayment";
+import { useAuth } from "../context/AuthContext";
 import "./PlanAccess.css";
 
 const API_BASE = "http://localhost:8000";
@@ -36,9 +37,14 @@ export default function PlanAccess() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
 
+  const { recordPurchase, isPlanPurchased } = useAuth();
+
   const planId = searchParams.get("plan") || "county_day";
   const plan = PLAN_CONTENT[planId] || PLAN_CONTENT.county_day;
   const needsCounty = planId === "county_day";
+
+  // Check if plan is already purchased
+  const alreadyPurchased = isPlanPurchased(planId);
 
   useEffect(() => {
     if (!needsCounty) return;
@@ -71,20 +77,29 @@ export default function PlanAccess() {
     };
   }, [needsCounty]);
 
-  const handlePaymentSuccess = (paymentIntent) => {
+  const handlePaymentSuccess = async (paymentIntent) => {
     console.log("Payment successful:", paymentIntent);
-    setPaymentSuccess(true);
-    setPaymentError(null);
-    
-    localStorage.setItem("payment_completed", "true");
-    localStorage.setItem("payment_plan", planId);
-    localStorage.setItem("payment_amount", plan.price);
-    
-    if (needsCounty && selectedCounty) {
-      localStorage.setItem("purchased_county", selectedCounty);
+
+    try {
+      // Record the purchase in database
+      await recordPurchase(planId, paymentIntent.id);
+
+      setPaymentSuccess(true);
+      setPaymentError(null);
+
+      localStorage.setItem("payment_completed", "true");
+      localStorage.setItem("payment_plan", planId);
+      localStorage.setItem("payment_amount", plan.price);
+
+      if (needsCounty && selectedCounty) {
+        localStorage.setItem("purchased_county", selectedCounty);
+      }
+
+      alert(`Mokėjimas sėkmingas! Jūs turite prieigą prie ${plan.title}`);
+    } catch (error) {
+      console.error("Failed to record purchase:", error);
+      setPaymentError("Mokėjimas atliktas, bet įrašyti nepavyko. Susisiekite su administratoriumi.");
     }
-    
-    alert(`Mokėjimas sėkmingas! Jūs turite prieigą prie ${plan.title}`);
   };
 
   const handlePaymentError = (error) => {
@@ -103,6 +118,47 @@ export default function PlanAccess() {
     navigate(`/map${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
+  if (alreadyPurchased) {
+    return (
+      <div className="plan-page">
+        <PageTopbar />
+
+        <main className="plan-main">
+          <section className="plan-card">
+            <span className="plan-chip purchased-chip">Jau įsigyta</span>
+            <h1>{plan.title}</h1>
+            <p>{plan.description}</p>
+            <div className="plan-price">
+              <span className="price-amount">{plan.price.toFixed(2)} €</span>
+              {planId === "lithuania_month" && <span className="price-period">/ mėn.</span>}
+            </div>
+          </section>
+
+          <section className="checkout-card">
+            <h2>Mokėjimas</h2>
+
+            <div className="payment-success">
+              <p>Jūs jau turite šį planą! Galite naudotis žemėlapiu.</p>
+              <button className="primary-btn" onClick={handleGoToMap}>
+                Eiti į žemėlapį
+              </button>
+            </div>
+
+            <div className="plan-actions">
+              <button
+                className="secondary-btn"
+                onClick={() => navigate("/")}
+                style={{ marginTop: "16px" }}
+              >
+                Grįžti į pradinį puslapį
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="plan-page">
       <PageTopbar />
@@ -120,7 +176,7 @@ export default function PlanAccess() {
 
         <section className="checkout-card">
           <h2>Mokėjimas</h2>
-          
+
           {paymentSuccess ? (
             <div className="payment-success">
               <p>Mokėjimas sėkmingas! Jūs jau turite prieigą.</p>
@@ -156,7 +212,7 @@ export default function PlanAccess() {
               )}
 
               <div className="stripe-payment-wrapper">
-                <StripePayment 
+                <StripePayment
                   amount={plan.price}
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}
@@ -166,8 +222,8 @@ export default function PlanAccess() {
           )}
 
           <div className="plan-actions">
-            <button 
-              className="secondary-btn" 
+            <button
+              className="secondary-btn"
               onClick={() => navigate("/")}
               style={{ marginTop: "16px" }}
             >

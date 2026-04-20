@@ -244,6 +244,11 @@
   margin: 0;
 }
 
+.plan-chip.purchased-chip {
+  background: #2f6b4d;
+  color: white;
+}
+
 @media (max-width: 760px) {
   .plan-actions {
     flex-direction: column;

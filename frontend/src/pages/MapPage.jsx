@@ -55,7 +55,7 @@ function getFeatureStyle(feature, hoveredFeature, selectedFeature) {
 }
 
 export default function MapPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasActivePlan, loading: authLoading } = useAuth(); // Renamed to authLoading
   const [searchParams] = useSearchParams();
   const [hoveredFeature, setHoveredFeature] = useState(null);
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -73,12 +73,26 @@ export default function MapPage() {
     geoData,
     handleMouseMove,
     handleViewportChange,
-    loading,
+    loading: mapDataLoading, // Renamed to mapDataLoading
     top3,
   } = useMapData(weights, selectedCounty);
 
+  // Check authentication first
+  if (authLoading) {
+    return <div className="loading">Tikrinama prieiga...</div>;
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!hasActivePlan) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Show loading state while map data is being fetched
+  if (mapDataLoading) {
+    return <div className="loading">Kraunama žemėlapio duomenys...</div>;
   }
 
   const styleFeature = useCallback(
@@ -130,9 +144,21 @@ export default function MapPage() {
         <div className="map-column">
           <div className="map-shell">
             <div className="map-container">
-              <MapContainer center={[55.2, 23.9]} zoom={7} minZoom={6} preferCanvas style={{ height: "100%", width: "100%" }}>
-                <TileLayer attribution="© OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <MapWatcher onViewportChange={handleViewportChange} onMouseMove={handleMouseMove} />
+              <MapContainer 
+                center={[55.2, 23.9]} 
+                zoom={7} 
+                minZoom={6} 
+                preferCanvas 
+                style={{ height: "100%", width: "100%" }}
+              >
+                <TileLayer 
+                  attribution="© OpenStreetMap contributors" 
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                />
+                <MapWatcher 
+                  onViewportChange={handleViewportChange} 
+                  onMouseMove={handleMouseMove} 
+                />
                 {geoData?.features?.length > 0 && (
                   <GeoJSON
                     key={`${currentLayer}-${featureCount}-${weights.restrictions}-${weights.soil}-${weights.road}-${selectedCounty}`}
@@ -196,7 +222,7 @@ export default function MapPage() {
           <div className="card status-card">
             <h3>Būsena</h3>
             <div className="status-main">
-              {loading ? "Kraunama duomenų ištrauka..." : "Duomenys paruošti peržiūrai"}
+              {mapDataLoading ? "Kraunama duomenų ištrauka..." : "Duomenys paruošti peržiūrai"}
             </div>
             <div className="status-sub">
               <span className="status-tag">{getLayerName(currentLayer)}</span>

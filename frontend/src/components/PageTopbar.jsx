@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function PageTopbar() {
   const navigate = useNavigate();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, hasActivePlan, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -22,7 +22,8 @@ export default function PageTopbar() {
         </NavLink>
 
         <nav className="topbar-nav">
-          {isAuthenticated && (
+          {/* Map button - only visible to logged in users who have an active plan */}
+          {isAuthenticated && hasActivePlan && (
             <NavLink to="/map" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               Žemėlapis
             </NavLink>

@@ -1,5 +1,5 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -32,6 +32,21 @@ class User(Base):
     reset_token = Column(String, nullable=True)
     reset_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class PurchasedPlan(Base):
+    __tablename__ = "purchased_plans"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    plan_id = Column(String, nullable=False)
+    transaction_id = Column(String, nullable=True)  # Added this field
+    purchased_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    is_active = Column(Boolean, default=True)
+
+# Add relationships after both classes are defined
+User.purchased_plans = relationship("PurchasedPlan", back_populates="user")
+PurchasedPlan.user = relationship("User", back_populates="purchased_plans")
 
 def init_db():
     Base.metadata.create_all(bind=engine)

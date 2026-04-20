@@ -18,7 +18,7 @@ export default function Login() {
       const response = await loginUser({ username: email, password });
       login(response.access_token, response.user);
       alert("Prisijungta sėkmingai!");
-      navigate("/map");
+      navigate("/");
     } catch (error) {
       alert(getAuthErrorMessage(error, "Neteisingi prisijungimo duomenys"));
     }

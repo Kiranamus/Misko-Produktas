@@ -9,24 +9,35 @@ const plans = [
     title: "Vienos dienos narystė duomenims iš vienos apskrities",
     description:
       "Trumpalaikė prieiga konkrečiai apskričiai, kai reikia greitai peržiūrėti vienos teritorijos objektus ir jų investicinį potencialą.",
+    price: "4.99 €",
   },
   {
     id: "lithuania_day",
     title: "Vienos dienos narystė visai Lietuvai",
     description:
       "Skirta trumpam visos Lietuvos objektų palyginimui, kai norisi apžvelgti platesnį vaizdą per vieną dieną.",
+    price: "9.99 €",
   },
   {
     id: "lithuania_month",
     title: "Mėnesio prenumerata visai Lietuvai",
     description:
       "Patogiausias pasirinkimas ilgesniam darbui su žemėlapiu, kai prie duomenų ir analizės reikia grįžti nuolat.",
+    price: "29.99 € / mėn.",
   },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isPlanPurchased } = useAuth();
+
+  const handlePlanClick = (planId) => {
+    if (!isAuthenticated) {
+      navigate("/login");
+    } else {
+      navigate(`/plan-access?plan=${planId}`);
+    }
+  };
 
   return (
     <div className="home-page">
@@ -67,25 +78,28 @@ export default function Home() {
         </section>
 
         <section className="plans-section">
-          {plans.map((plan) => (
-            <article className="plan-card" key={plan.id}>
-              <span className="plan-chip">Planas</span>
-              <h3>{plan.title}</h3>
-              <p>{plan.description}</p>
-              <button
-                className="primary-btn"
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    navigate("/login");
-                  } else {
-                    navigate(`/plan-access?plan=${plan.id}`);
-                  }
-                }}
-              >
-                Pasirinkti
-              </button>
-            </article>
-          ))}
+          <h2 className="plans-title">Pasirinkite planą</h2>
+          <div className="plans-grid">
+            {plans.map((plan) => {
+              const purchased = isAuthenticated && isPlanPurchased(plan.id);
+              
+              return (
+                <article className={`plan-card ${purchased ? "purchased" : ""}`} key={plan.id}>
+                  <span className="plan-chip">{purchased ? "✓ Įsigyta" : "Planas"}</span>
+                  <h3>{plan.title}</h3>
+                  <p>{plan.description}</p>
+                  <div className="plan-price">{plan.price}</div>
+                  <button
+                    className={purchased ? "disabled-btn" : "primary-btn"}
+                    onClick={() => handlePlanClick(plan.id)}
+                    disabled={purchased}
+                  >
+                    {purchased ? "Jau įsigyta" : "Pasirinkti"}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
         </section>
 
         <section className="team-section">
