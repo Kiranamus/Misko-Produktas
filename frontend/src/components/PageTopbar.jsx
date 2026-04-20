@@ -22,7 +22,6 @@ export default function PageTopbar() {
         </NavLink>
 
         <nav className="topbar-nav">
-          {/* Map button - only visible to logged in users who have an active plan */}
           {isAuthenticated && hasActivePlan && (
             <NavLink to="/map" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
               Žemėlapis

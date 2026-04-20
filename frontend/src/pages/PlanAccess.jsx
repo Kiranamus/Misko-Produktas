@@ -43,7 +43,6 @@ export default function PlanAccess() {
   const plan = PLAN_CONTENT[planId] || PLAN_CONTENT.county_day;
   const needsCounty = planId === "county_day";
 
-  // Check if plan is already purchased
   const alreadyPurchased = isPlanPurchased(planId);
 
   useEffect(() => {
@@ -81,7 +80,6 @@ export default function PlanAccess() {
     console.log("Payment successful:", paymentIntent);
 
     try {
-      // Record the purchase in database
       await recordPurchase(planId, paymentIntent.id);
 
       setPaymentSuccess(true);

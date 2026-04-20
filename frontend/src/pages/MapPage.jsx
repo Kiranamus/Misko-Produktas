@@ -55,7 +55,7 @@ function getFeatureStyle(feature, hoveredFeature, selectedFeature) {
 }
 
 export default function MapPage() {
-  const { isAuthenticated, hasActivePlan, loading: authLoading } = useAuth(); // Renamed to authLoading
+  const { isAuthenticated, hasActivePlan, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const [hoveredFeature, setHoveredFeature] = useState(null);
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -73,11 +73,10 @@ export default function MapPage() {
     geoData,
     handleMouseMove,
     handleViewportChange,
-    loading: mapDataLoading, // Renamed to mapDataLoading
+    loading: mapDataLoading,
     top3,
   } = useMapData(weights, selectedCounty);
 
-  // Check authentication first
   if (authLoading) {
     return <div className="loading">Tikrinama prieiga...</div>;
   }
@@ -90,7 +89,6 @@ export default function MapPage() {
     return <Navigate to="/" replace />;
   }
 
-  // Show loading state while map data is being fetched
   if (mapDataLoading) {
     return <div className="loading">Kraunama žemėlapio duomenys...</div>;
   }

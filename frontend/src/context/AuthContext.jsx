@@ -14,7 +14,6 @@ export function AuthProvider({ children }) {
   const [hasActivePlan, setHasActivePlan] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user's purchased plans
   const fetchUserPlans = async (token) => {
     if (!token) return;
     
@@ -29,7 +28,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Check if user has any active plan
   const fetchHasActivePlan = async (token) => {
     if (!token) return;
     
@@ -44,7 +42,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Record a purchase after successful payment
   const recordPurchase = async (planId, transactionId) => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -58,7 +55,6 @@ export function AuthProvider({ children }) {
       );
       
       if (response.data.success) {
-        // Refresh user's plans after successful purchase
         await fetchUserPlans(token);
         await fetchHasActivePlan(token);
       }
@@ -70,22 +66,18 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Check if a specific plan is purchased
   const isPlanPurchased = (planId) => {
     return purchasedPlans.includes(planId);
   };
 
-  // Login function
   const login = async (token, userData) => {
     storeAuth(token, userData);
     setUser(userData);
     
-    // Fetch user's plans after login
     await fetchUserPlans(token);
     await fetchHasActivePlan(token);
   };
 
-  // Logout function
   const logout = () => {
     clearStoredAuth();
     setUser(null);
@@ -93,7 +85,6 @@ export function AuthProvider({ children }) {
     setHasActivePlan(false);
   };
 
-  // Load user data on initial mount
   useEffect(() => {
     const loadUserData = async () => {
       setLoading(true);

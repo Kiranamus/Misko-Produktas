@@ -9,7 +9,6 @@
         linear-gradient(180deg, #f7faf7 0%, #eef4ef 55%, #e7efe9 100%);
 }
 
-/* Center card below topbar */
 .login-content {
     flex: 1;
     display: flex;
@@ -19,7 +18,6 @@
     box-sizing: border-box;
 }
 
-/* Card */
 .login-card {
     width: 100%;
     max-width: 460px;
@@ -33,7 +31,6 @@
     text-align: center;
 }
 
-/* Heading & subtitle */
 .login-card h1 {
     margin: 0 0 10px 0;
     font-size: 34px;
@@ -47,7 +44,6 @@
     color: #455e51;
 }
 
-/* Form layout */
 .login-form {
     display: flex;
     flex-direction: column;
@@ -63,7 +59,6 @@
     color: #2f5a44;
     font-size: 14px;
     text-align: left;
-    /* align label text to left */
 }
 
 .login-label input {
@@ -81,17 +76,14 @@
     box-shadow: 0 0 0 3px rgba(47, 109, 79, 0.14);
 }
 
-/* Buttons container */
 .login-actions {
     display: flex;
     flex-direction: column;
     gap: 12px;
     margin-top: 20px;
     align-items: center;
-    /* center all buttons */
 }
 
-/* Primary button */
 .primary-btn {
     border: none;
     border-radius: 12px;
@@ -104,7 +96,6 @@
     transition: transform 0.22s ease, box-shadow 0.22s ease;
     display: block;
     margin: 0 auto;
-    /* center button horizontally */
     justify-content: center;
     text-align: center;
     width: 100%;
@@ -115,10 +106,8 @@
     transform: translateY(-2px);
     box-shadow: 0 16px 32px rgba(37, 92, 66, 0.28);
     color: inherit;
-    /* do not change text color */
 }
 
-/* Secondary button */
 .secondary-btn {
     border: 1px solid rgba(37, 92, 66, 0.12);
     border-radius: 12px;
@@ -139,10 +128,8 @@
 .secondary-btn:hover {
     background: rgba(255, 255, 255, 0.92);
     color: inherit;
-    /* keep text color the same */
 }
 
-/* Responsive adjustments */
 @media (max-height: 600px) {
     .login-card {
         padding: 20px;

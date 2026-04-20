@@ -44,7 +44,6 @@ class PurchasedPlan(Base):
     expires_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
 
-# Add relationships after both classes are defined
 User.purchased_plans = relationship("PurchasedPlan", back_populates="user")
 PurchasedPlan.user = relationship("User", back_populates="purchased_plans")
 
