@@ -1,4 +1,4 @@
-import { API } from "../api";
+import { API } from "../api.js";
 
 export async function loginUser(credentials) {
   const response = await API.post("/login", credentials);
