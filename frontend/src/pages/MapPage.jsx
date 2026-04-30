@@ -77,22 +77,6 @@ export default function MapPage() {
     top3,
   } = useMapData(weights, selectedCounty);
 
-  if (authLoading) {
-    return <div className="loading">Tikrinama prieiga...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!hasActivePlan) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (mapDataLoading) {
-    return <div className="loading">Kraunama žemėlapio duomenys...</div>;
-  }
-
   const styleFeature = useCallback(
     (feature) => getFeatureStyle(feature, hoveredFeature, selectedFeature),
     [hoveredFeature, selectedFeature]
@@ -127,10 +111,22 @@ export default function MapPage() {
     });
   };
 
+  if (authLoading) {
+    return <div className="loading">Tikrinama prieiga...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!hasActivePlan) {
+    return <Navigate to="/" replace />;
+  }
+
   const weightSum = weights.restrictions + weights.soil + weights.road;
   const weightLabels = {
     restrictions: "Ribojimai",
-    soil: "Dirvožemis",
+    soil: "Dirvozemis",
     road: "Keliai",
   };
 
@@ -141,21 +137,21 @@ export default function MapPage() {
       <div className="layout">
         <div className="map-column">
           <div className="map-shell">
-            <div className="map-container">
-              <MapContainer 
-                center={[55.2, 23.9]} 
-                zoom={7} 
-                minZoom={6} 
-                preferCanvas 
+            <div className="map-container" style={{ position: "relative" }}>
+              <MapContainer
+                center={[55.2, 23.9]}
+                zoom={7}
+                minZoom={6}
+                preferCanvas
                 style={{ height: "100%", width: "100%" }}
               >
-                <TileLayer 
-                  attribution="© OpenStreetMap contributors" 
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                <TileLayer
+                  attribution="© OpenStreetMap contributors"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <MapWatcher 
-                  onViewportChange={handleViewportChange} 
-                  onMouseMove={handleMouseMove} 
+                <MapWatcher
+                  onViewportChange={handleViewportChange}
+                  onMouseMove={handleMouseMove}
                 />
                 {geoData?.features?.length > 0 && (
                   <GeoJSON
@@ -171,6 +167,12 @@ export default function MapPage() {
                   </div>
                 )}
               </MapContainer>
+
+              {mapDataLoading && (
+                <div className="loading">
+                  Kraunama zemelapio duomenys...
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -196,7 +198,7 @@ export default function MapPage() {
               <div className="legend-row">
                 <div className="legend-left">
                   <span className="legend-box yellow" />
-                  <span>Vidutiniškai</span>
+                  <span>Vidutiniskai</span>
                 </div>
                 <span className="legend-score">0.4-0.6</span>
               </div>
@@ -218,13 +220,13 @@ export default function MapPage() {
           </div>
 
           <div className="card status-card">
-            <h3>Būsena</h3>
+            <h3>Busena</h3>
             <div className="status-main">
-              {mapDataLoading ? "Kraunama duomenų ištrauka..." : "Duomenys paruošti peržiūrai"}
+              {mapDataLoading ? "Kraunama duomenu istrauka..." : "Duomenys paruosti perziurai"}
             </div>
             <div className="status-sub">
               <span className="status-tag">{getLayerName(currentLayer)}</span>
-              <span className="status-tag">Objektų kiekis: {featureCount}</span>
+              <span className="status-tag">Objektu kiekis: {featureCount}</span>
               {selectedCounty && <span className="status-tag">{selectedCounty}</span>}
             </div>
           </div>
@@ -257,19 +259,19 @@ export default function MapPage() {
             ))}
 
             <div className="weight-sum">
-              Svorių suma: <strong>{weightSum}</strong> / 100
+              Svoriu suma: <strong>{weightSum}</strong> / 100
             </div>
 
             <div className="weight-note">
-              Jei bandysi įvesti per didelę reikšmę, ji bus automatiškai apribota, kad bendra suma neviršytų 100.
-              Celės su mažesne nei 20 % miško dalimi nerodomos.
+              Jei bandysi ivesti per didele reiksme, ji bus automatiskai apribota, kad bendra suma
+              nevirsytu 100. Celes su mazesne nei 20 % misko dalimi nerodomos.
             </div>
           </div>
 
           <div className="card top3-panel">
             <h3>Top 3 vietos</h3>
             {top3.length === 0 ? (
-              <div className="top3-score">Šiuo metu nėra pakankamai duomenų.</div>
+              <div className="top3-score">Siuo metu nera pakankamai duomenu.</div>
             ) : (
               <div className="top3-list">
                 {top3.map((item) => (
@@ -277,7 +279,7 @@ export default function MapPage() {
                     <div className="top3-rank">{item.rank}</div>
                     <div>
                       <div className="top3-title">
-                        {item.rank} vieta – {getLayerName(item.layer)}
+                        {item.rank} vieta - {getLayerName(item.layer)}
                       </div>
                       <div className="top3-score">
                         Investicinis indeksas: <strong>{item.score.toFixed(2)}</strong>
