@@ -25,9 +25,7 @@ def send_email(to_email: str, subject: str, html_content: str) -> None:
                 "name": MAIL_FROM_NAME,
                 "email": MAIL_FROM,
             },
-            "to": [
-                {"email": to_email}
-            ],
+            "to": [{"email": to_email}],
             "subject": subject,
             "htmlContent": html_content,
         },
@@ -36,3 +34,18 @@ def send_email(to_email: str, subject: str, html_content: str) -> None:
 
     if response.status_code >= 400:
         raise RuntimeError(f"Brevo email failed: {response.status_code} {response.text}")
+
+
+def send_password_reset_email(to_email: str, reset_link: str) -> None:
+    html = f"""
+    <h2>ForestForYou slaptažodžio atkūrimas</h2>
+    <p>Gavome prašymą atkurti jūsų slaptažodį.</p>
+    <p><a href="{reset_link}">Atkurti slaptažodį</a></p>
+    <p>Jeigu jūs šio prašymo nesiuntėte, ignoruokite šį laišką.</p>
+    """
+
+    send_email(
+        to_email=to_email,
+        subject="ForestForYou slaptažodžio atkūrimas",
+        html_content=html,
+    )

@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+import os
+from app.services.email_service import send_password_reset_email
 
 from ..auth import (
     ALGORITHM,
@@ -121,13 +123,19 @@ def create_password_reset_token(
     db: Session, request: ForgotPasswordRequest
 ) -> ForgotPasswordResponse:
     user = get_user_by_login(db, request.username)
+
     if not user:
-        return ForgotPasswordResponse(token="user_not_found_dummy_token")
+        return ForgotPasswordResponse(token="email_sent")
 
     token = assign_password_reset_token(user)
     db.commit()
 
-    return ForgotPasswordResponse(token=token)
+    frontend_url = os.getenv("FRONTEND_URL", "https://forestforyou.eu").rstrip("/")
+    reset_link = f"{frontend_url}/#/reset-password-confirm?token={token}"
+
+    send_password_reset_email(user.email, reset_link)
+
+    return ForgotPasswordResponse(token="email_sent")
 
 
 def reset_user_password(db: Session, request: ResetPasswordRequest) -> dict:

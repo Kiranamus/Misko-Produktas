@@ -1,23 +1,18 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import PageTopbar from "../components/PageTopbar";
 import { getAuthErrorMessage, requestPasswordReset } from "../services/authApi";
 import "./ResetPassword.css";
 
 export default function ResetPassword() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     try {
-      const data = await requestPasswordReset(email);
-      const resetLink = `${window.location.origin}/reset-password-confirm?token=${data.token}`;
-
-      window.open(resetLink, "_blank");
-      alert("Slaptažodžio atkūrimo nuoroda atidaryta naujame skirtuke!");
-      navigate("/login");
+      await requestPasswordReset(email);
+      alert("Slaptažodžio atkūrimo nuoroda išsiųsta el. paštu.");
     } catch (error) {
       alert(getAuthErrorMessage(error, "Įvyko klaida"));
     }

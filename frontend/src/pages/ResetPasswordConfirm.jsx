@@ -7,7 +7,10 @@ import "./ResetPassword.css";
 export default function ResetPasswordConfirm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+  const hashSearch = window.location.hash.includes("?")
+    ? new URLSearchParams(window.location.hash.split("?")[1])
+    : null;
+  const token = searchParams.get("token") || hashSearch?.get("token");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
