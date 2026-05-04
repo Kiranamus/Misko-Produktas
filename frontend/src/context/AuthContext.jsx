@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
 
   const fetchUserPlans = async (token) => {
     if (!token) return;
-    
+
     try {
       const response = await API.get('/api/user-plans', {
         headers: { Authorization: `Bearer ${token}` }
@@ -28,9 +28,13 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const getPurchasedCounty = () => {
+    return localStorage.getItem("purchased_county");
+  };
+
   const fetchHasActivePlan = async (token) => {
     if (!token) return;
-    
+
     try {
       const response = await API.get('/api/has-active-plan', {
         headers: { Authorization: `Bearer ${token}` }
@@ -47,18 +51,18 @@ export function AuthProvider({ children }) {
     if (!token) {
       throw new Error('No authentication token found');
     }
-    
+
     try {
-      const response = await API.post('/api/record-purchase', 
+      const response = await API.post('/api/record-purchase',
         { plan_id: planId, transaction_id: transactionId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       if (response.data.success) {
         await fetchUserPlans(token);
         await fetchHasActivePlan(token);
       }
-      
+
       return response.data;
     } catch (error) {
       console.error('Failed to record purchase:', error);
@@ -73,7 +77,7 @@ export function AuthProvider({ children }) {
   const login = async (token, userData) => {
     storeAuth(token, userData);
     setUser(userData);
-    
+
     await fetchUserPlans(token);
     await fetchHasActivePlan(token);
   };
@@ -89,33 +93,59 @@ export function AuthProvider({ children }) {
     const loadUserData = async () => {
       setLoading(true);
       const { token, user: storedUser } = loadStoredAuth();
-      
+
       if (token && storedUser) {
         setUser(storedUser);
         await fetchUserPlans(token);
         await fetchHasActivePlan(token);
       }
-      
+
       setLoading(false);
     };
-    
+
     loadUserData();
   }, []);
 
   const value = useMemo(
-    () => ({ 
-      user, 
-      login, 
-      logout, 
+    () => ({
+      user,
+      login,
+      logout,
       purchasedPlans,
       hasActivePlan,
       isPlanPurchased,
       recordPurchase,
+      getPurchasedCounty,
       isAuthenticated: !!user,
       loading
     }),
     [user, purchasedPlans, hasActivePlan, loading]
   );
+
+  useEffect(() => {
+    const checkTokenExpiration = () => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const exp = payload.exp * 1000;
+
+          if (Date.now() >= exp) {
+            logout();
+            window.location.href = "/login";
+          }
+        } catch (error) {
+          console.error("Failed to decode token:", error);
+        }
+      }
+    };
+
+    checkTokenExpiration();
+
+    const interval = setInterval(checkTokenExpiration, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <AuthContext.Provider value={value}>

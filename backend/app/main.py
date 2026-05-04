@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
+import asyncio
 
 from .api.routes import router
 from .database import init_db, get_db, User, PurchasedPlan
@@ -22,7 +23,6 @@ ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 app = FastAPI()
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "*"],
@@ -34,6 +34,28 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    asyncio.create_task(clean_expired_plans_periodically())
+
+async def clean_expired_plans_periodically():
+    while True:
+        await asyncio.sleep(3600)
+        db = next(get_db())
+        try:
+            now = datetime.now()
+            expired_plans = db.query(PurchasedPlan).filter(
+                PurchasedPlan.expires_at < now,
+                PurchasedPlan.is_active == True
+            ).all()
+            
+            for plan in expired_plans:
+                plan.is_active = False
+            
+            if expired_plans:
+                db.commit()
+        except Exception as e:
+            print(f"Error cleaning expired plans: {e}")
+        finally:
+            db.close()
 
 security = HTTPBearer()
 
@@ -91,8 +113,6 @@ async def record_purchase(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Record a successful purchase - deactivates old plans"""
-    
     existing_plans = db.query(PurchasedPlan).filter(
         PurchasedPlan.user_id == current_user.id,
         PurchasedPlan.is_active == True
@@ -106,22 +126,22 @@ async def record_purchase(
         PurchasedPlan.plan_id == purchase.plan_id
     ).first()
     
+    now = datetime.now()
+    
+    if purchase.plan_id == "lithuania_month":
+        expires_at = now + timedelta(days=30)
+    elif purchase.plan_id in ["lithuania_day", "county_day"]:
+        expires_at = now + timedelta(hours=24)
+    else:
+        expires_at = None
+    
     if existing:
         existing.is_active = True
         existing.transaction_id = purchase.transaction_id
-        existing.purchased_at = datetime.utcnow()
-        
-        if purchase.plan_id == "lithuania_month":
-            existing.expires_at = datetime.utcnow() + timedelta(days=30)
-        else:
-            existing.expires_at = None
-        
+        existing.purchased_at = now
+        existing.expires_at = expires_at
         db.commit()
-        return {"message": "Plan reactivated successfully", "success": True}
-    
-    expires_at = None
-    if purchase.plan_id == "lithuania_month":
-        expires_at = datetime.utcnow() + timedelta(days=30)
+        return {"success": True}
     
     purchased_plan = PurchasedPlan(
         user_id=current_user.id,
@@ -134,7 +154,7 @@ async def record_purchase(
     db.add(purchased_plan)
     db.commit()
     
-    return {"message": "Purchase recorded successfully", "success": True}
+    return {"success": True}
 
 @app.get("/api/user-plans")
 async def get_user_plans(
@@ -146,9 +166,11 @@ async def get_user_plans(
         PurchasedPlan.is_active == True
     ).all()
     
+    now = datetime.now()
     active_plans = []
+    
     for purchase in purchases:
-        if purchase.expires_at and purchase.expires_at < datetime.utcnow():
+        if purchase.expires_at and purchase.expires_at < now:
             purchase.is_active = False
             db.commit()
             continue
@@ -166,13 +188,16 @@ async def has_active_plan(
         PurchasedPlan.is_active == True
     ).all()
     
+    now = datetime.now()
     has_active = False
+    
     for purchase in purchases:
-        if purchase.expires_at and purchase.expires_at < datetime.utcnow():
+        if purchase.expires_at and purchase.expires_at < now:
             purchase.is_active = False
             db.commit()
             continue
         has_active = True
+        break
     
     return {"has_active_plan": has_active}
 

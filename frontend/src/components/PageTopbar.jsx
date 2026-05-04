@@ -3,11 +3,21 @@ import { useAuth } from "../context/AuthContext";
 
 export default function PageTopbar() {
   const navigate = useNavigate();
-  const { isAuthenticated, hasActivePlan, logout } = useAuth();
+  const { isAuthenticated, hasActivePlan, purchasedPlans, user, getPurchasedCounty, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
     navigate("/");
+  };
+
+  const purchasedCounty = getPurchasedCounty();
+  const hasCountyPlan = purchasedPlans.includes("county_day");
+
+  const getMapLink = () => {
+    if (hasCountyPlan && purchasedCounty) {
+      return `/map?county=${encodeURIComponent(purchasedCounty)}`;
+    }
+    return "/map";
   };
 
   return (
@@ -23,8 +33,12 @@ export default function PageTopbar() {
 
         <nav className="topbar-nav">
           {isAuthenticated && hasActivePlan && (
-            <NavLink to="/map" className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+            <NavLink
+              to={getMapLink()}
+              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+            >
               Žemėlapis
+              {hasCountyPlan && purchasedCounty && ` (${purchasedCounty})`}
             </NavLink>
           )}
 

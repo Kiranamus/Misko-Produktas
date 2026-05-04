@@ -96,7 +96,7 @@ export default function PlanAccess() {
       alert(`Mokėjimas sėkmingas! Jūs turite prieigą prie ${plan.title}`);
     } catch (error) {
       console.error("Failed to record purchase:", error);
-      setPaymentError("Mokėjimas atliktas, bet įrašyti nepavyko. Susisiekite su administratoriumi.");
+      setPaymentError("Mokėjimas atliktas, bet įrašyti nepavyko.");
     }
   };
 
