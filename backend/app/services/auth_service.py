@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
@@ -119,18 +120,26 @@ def login_user(db: Session, user_data: LoginRequest) -> dict:
     return build_login_response(user)
 
 
+def build_frontend_url(frontend_url: str) -> str:
+    parsed = urlsplit(frontend_url.strip())
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
+
+
 def create_password_reset_token(
     db: Session, request: ForgotPasswordRequest
 ) -> ForgotPasswordResponse:
     user = get_user_by_login(db, request.username)
 
     if not user:
-        return ForgotPasswordResponse(token="email_sent")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El. paštas nerastas duomenų bazėje",
+        )
 
     token = assign_password_reset_token(user)
     db.commit()
 
-    frontend_url = os.getenv("FRONTEND_URL", "https://forestforyou.eu").rstrip("/")
+    frontend_url = build_frontend_url(os.getenv("FRONTEND_URL", "https://forestforyou.eu"))
     reset_link = f"{frontend_url}/#/reset-password-confirm?token={token}"
 
     send_password_reset_email(user.email, reset_link)

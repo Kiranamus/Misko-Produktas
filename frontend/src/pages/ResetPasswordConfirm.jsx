@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
+import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import PageTopbar from "../components/PageTopbar";
 import { getAuthErrorMessage, resetPassword } from "../services/authApi";
 import "./ResetPassword.css";
 
 export default function ResetPasswordConfirm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const hashSearch = window.location.hash.includes("?")
-    ? new URLSearchParams(window.location.hash.split("?")[1])
+  const hashSearch = location.hash.includes("?")
+    ? new URLSearchParams(location.hash.split("?")[1])
     : null;
   const token = searchParams.get("token") || hashSearch?.get("token");
   const [newPassword, setNewPassword] = useState("");

@@ -10,25 +10,20 @@ import PlanAccess from "./pages/PlanAccess";
 import "./App.css";
 
 export default function App() {
-  const hashPath = window.location.hash.replace(/^#/, "");
-
   return (
     <AuthProvider>
       <div className="app-shell">
         <main className="app-main">
-          {hashPath.startsWith("/reset-password-confirm") ? (
-            <ResetPasswordConfirm />
-          ) : (
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/map" element={<MapPage />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/reset-password-confirm" element={<ResetPasswordConfirm />} />
-              <Route path="/plan-access" element={<PlanAccess />} />
-            </Routes>
-          )}
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/reset-password-confirm/*" element={<ResetPasswordConfirm />} />
+            <Route path="reset-password-confirm/*" element={<ResetPasswordConfirm />} />
+            <Route path="/plan-access" element={<PlanAccess />} />
+          </Routes>
         </main>
       </div>
     </AuthProvider>

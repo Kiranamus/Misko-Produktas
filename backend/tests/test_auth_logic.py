@@ -114,14 +114,16 @@ class AuthServiceTests(unittest.TestCase):
         mocked_build.assert_called_once_with(user)
         self.assertEqual(result, {"access_token": "abc"})
 
-    def test_create_password_reset_token_returns_dummy_for_missing_user(self):
+    def test_create_password_reset_token_rejects_unknown_email(self):
         db = FakeDB()
         request = ForgotPasswordRequest(username="missing@example.com")
 
         with patch.object(auth_service, "get_user_by_login", return_value=None):
-            response = auth_service.create_password_reset_token(db, request)
+            with self.assertRaises(HTTPException) as ctx:
+                auth_service.create_password_reset_token(db, request)
 
-        self.assertEqual(response.token, "email_sent")
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail, "El. paštas nerastas duomenų bazėje")
         self.assertEqual(db.commits, 0)
 
     def test_create_password_reset_token_updates_user_and_commits(self):

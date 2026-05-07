@@ -1,12 +1,35 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { GeoJSON, MapContainer, TileLayer, useMapEvents } from "react-leaflet";
+import { GeoJSON, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import PageTopbar from "../components/PageTopbar";
 import { useAuth } from "../context/AuthContext";
 import { buildFeaturePopupContent, getLayerName } from "../features/map/formatters";
 import { useMapData } from "../features/map/useMapData";
 import "./MapPage.css";
+
+const COUNTY_BOUNDS = {
+  "alytaus apskritis": [[53.86, 23.45], [54.82, 25.25]],
+  "kauno apskritis": [[54.52, 22.78], [55.58, 25.05]],
+  "klaipėdos apskritis": [[55.17, 20.86], [56.45, 22.38]],
+  "klaipedos apskritis": [[55.17, 20.86], [56.45, 22.38]],
+  "marijampolės apskritis": [[54.20, 22.50], [55.13, 23.78]],
+  "marijampoles apskritis": [[54.20, 22.50], [55.13, 23.78]],
+  "panevėžio apskritis": [[55.34, 23.45], [56.45, 25.60]],
+  "panevezio apskritis": [[55.34, 23.45], [56.45, 25.60]],
+  "šiaulių apskritis": [[55.55, 22.30], [56.48, 24.45]],
+  "siauliu apskritis": [[55.55, 22.30], [56.48, 24.45]],
+  "tauragės apskritis": [[55.00, 21.55], [56.05, 23.35]],
+  "taurages apskritis": [[55.00, 21.55], [56.05, 23.35]],
+  "telšių apskritis": [[55.65, 21.25], [56.45, 22.95]],
+  "telsiu apskritis": [[55.65, 21.25], [56.45, 22.95]],
+  "utenos apskritis": [[55.05, 24.55], [56.45, 26.85]],
+  "vilniaus apskritis": [[54.05, 24.35], [55.55, 26.95]],
+};
+
+function normalizeCountyName(county) {
+  return county.trim().toLowerCase();
+}
 
 function MapWatcher({ onViewportChange, onMouseMove }) {
   useMapEvents({
@@ -20,6 +43,42 @@ function MapWatcher({ onViewportChange, onMouseMove }) {
       onMouseMove(event.latlng);
     },
   });
+
+  return null;
+}
+
+function CountyInitialZoom({ selectedCounty, onViewportChange }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const bounds = COUNTY_BOUNDS[normalizeCountyName(selectedCounty || "")];
+    if (!bounds) return;
+
+    const timeoutId = window.setTimeout(() => {
+      map.invalidateSize();
+      map.fitBounds(bounds, {
+        animate: false,
+        padding: [18, 18],
+      });
+      onViewportChange(map);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [map, onViewportChange, selectedCounty]);
+
+  return null;
+}
+
+function MapResizeHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      map.invalidateSize();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [map]);
 
   return null;
 }
@@ -54,6 +113,40 @@ function getFeatureStyle(feature, hoveredFeature, selectedFeature) {
   };
 }
 
+function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange, handleMouseMove, coords, mapDataLoading, currentLayer, featureCount, selectedCounty, dataVersion }) {
+  return (
+    <>
+      <MapWatcher
+        onViewportChange={handleViewportChange}
+        onMouseMove={handleMouseMove}
+      />
+      <CountyInitialZoom
+        selectedCounty={selectedCounty}
+        onViewportChange={handleViewportChange}
+      />
+      <MapResizeHandler />
+      {geoData?.features?.length > 0 && (
+        <GeoJSON
+          key={`${currentLayer}-${featureCount}-${selectedCounty}-${dataVersion}`}
+          data={geoData}
+          style={styleFeature}
+          onEachFeature={onEachFeature}
+        />
+      )}
+      {coords && (
+        <div className="coords-box">
+          {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+        </div>
+      )}
+      {mapDataLoading && (
+        <div className="loading">
+          Kraunama zemelapio duomenys...
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function MapPage() {
   const { isAuthenticated, hasActivePlan, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
@@ -69,6 +162,7 @@ export default function MapPage() {
   const {
     coords,
     currentLayer,
+    dataVersion,
     featureCount,
     geoData,
     handleMouseMove,
@@ -77,12 +171,17 @@ export default function MapPage() {
     top3,
   } = useMapData(weights, selectedCounty);
 
+  const mapRef = useRef(null);
+  const featureLayerRef = useRef(new WeakMap());
+
   const styleFeature = useCallback(
     (feature) => getFeatureStyle(feature, hoveredFeature, selectedFeature),
     [hoveredFeature, selectedFeature]
   );
 
   const onEachFeature = useCallback((feature, layer) => {
+    featureLayerRef.current.set(feature, layer);
+
     layer.on({
       mouseover: () => setHoveredFeature(feature),
       mouseout: () => setHoveredFeature(null),
@@ -110,6 +209,41 @@ export default function MapPage() {
       };
     });
   };
+
+  const openFeaturePopup = useCallback((feature) => {
+    if (!feature || !mapRef.current) return;
+
+    const layer = featureLayerRef.current.get(feature);
+    if (!layer?.openPopup) return;
+
+    const latlng = layer.getBounds ? layer.getBounds().getCenter() : undefined;
+    layer.openPopup(latlng);
+  }, []);
+
+  // Auto-open popup when selectedFeature changes
+  useEffect(() => {
+    if (!selectedFeature) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      openFeaturePopup(selectedFeature);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [openFeaturePopup, selectedFeature]);
+
+  const handleTop3Click = useCallback((item) => {
+    const feature = item.feature;
+
+    if (!feature) {
+      return;
+    }
+
+    setSelectedFeature(feature);
+
+    window.setTimeout(() => {
+      openFeaturePopup(feature);
+    }, 0);
+  }, [openFeaturePopup]);
 
   if (authLoading) {
     return <div className="loading">Tikrinama prieiga...</div>;
@@ -139,6 +273,7 @@ export default function MapPage() {
           <div className="map-shell">
             <div className="map-container" style={{ position: "relative" }}>
               <MapContainer
+                ref={mapRef}
                 center={[55.2, 23.9]}
                 zoom={7}
                 minZoom={6}
@@ -149,76 +284,66 @@ export default function MapPage() {
                   attribution="© OpenStreetMap contributors"
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <MapWatcher
-                  onViewportChange={handleViewportChange}
-                  onMouseMove={handleMouseMove}
+                <MapContent
+                  geoData={geoData}
+                  styleFeature={styleFeature}
+                  onEachFeature={onEachFeature}
+                  handleViewportChange={handleViewportChange}
+                  handleMouseMove={handleMouseMove}
+                  coords={coords}
+                  mapDataLoading={mapDataLoading}
+                  currentLayer={currentLayer}
+                  featureCount={featureCount}
+                  selectedCounty={selectedCounty}
+                  dataVersion={dataVersion}
                 />
-                {geoData?.features?.length > 0 && (
-                  <GeoJSON
-                    key={`${currentLayer}-${featureCount}-${weights.restrictions}-${weights.soil}-${weights.road}-${selectedCounty}`}
-                    data={geoData}
-                    style={styleFeature}
-                    onEachFeature={onEachFeature}
-                  />
-                )}
-                {coords && (
-                  <div className="coords-box">
-                    {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
-                  </div>
-                )}
               </MapContainer>
+            </div>
 
-              {mapDataLoading && (
-                <div className="loading">
-                  Kraunama zemelapio duomenys...
+            <div className="card legend-card">
+              <h3>Legenda</h3>
+              <div className="legend">
+                <div className="legend-row">
+                  <div className="legend-left">
+                    <span className="legend-box green" />
+                    <span>Puiku</span>
+                  </div>
+                  <span className="legend-score">0.8-1.0</span>
                 </div>
-              )}
+                <div className="legend-row">
+                  <div className="legend-left">
+                    <span className="legend-box light-green" />
+                    <span>Gerai</span>
+                  </div>
+                  <span className="legend-score">0.6-0.8</span>
+                </div>
+                <div className="legend-row">
+                  <div className="legend-left">
+                    <span className="legend-box yellow" />
+                    <span>Vidutiniskai</span>
+                  </div>
+                  <span className="legend-score">0.4-0.6</span>
+                </div>
+                <div className="legend-row">
+                  <div className="legend-left">
+                    <span className="legend-box orange" />
+                    <span>Blogai</span>
+                  </div>
+                  <span className="legend-score">0.2-0.4</span>
+                </div>
+                <div className="legend-row">
+                  <div className="legend-left">
+                    <span className="legend-box red" />
+                    <span>Labai blogai</span>
+                  </div>
+                  <span className="legend-score">0.0-0.2</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="info-column">
-          <div className="card">
-            <h3>Legenda</h3>
-            <div className="legend">
-              <div className="legend-row">
-                <div className="legend-left">
-                  <span className="legend-box green" />
-                  <span>Puiku</span>
-                </div>
-                <span className="legend-score">0.8-1.0</span>
-              </div>
-              <div className="legend-row">
-                <div className="legend-left">
-                  <span className="legend-box light-green" />
-                  <span>Gerai</span>
-                </div>
-                <span className="legend-score">0.6-0.8</span>
-              </div>
-              <div className="legend-row">
-                <div className="legend-left">
-                  <span className="legend-box yellow" />
-                  <span>Vidutiniskai</span>
-                </div>
-                <span className="legend-score">0.4-0.6</span>
-              </div>
-              <div className="legend-row">
-                <div className="legend-left">
-                  <span className="legend-box orange" />
-                  <span>Blogai</span>
-                </div>
-                <span className="legend-score">0.2-0.4</span>
-              </div>
-              <div className="legend-row">
-                <div className="legend-left">
-                  <span className="legend-box red" />
-                  <span>Labai blogai</span>
-                </div>
-                <span className="legend-score">0.0-0.2</span>
-              </div>
-            </div>
-          </div>
-
           <div className="card status-card">
             <h3>Busena</h3>
             <div className="status-main">
@@ -277,13 +402,19 @@ export default function MapPage() {
                 {top3.map((item) => (
                   <div className="top3-item" key={item.rank}>
                     <div className="top3-rank">{item.rank}</div>
-                    <div>
+                    <div className="top3-content">
                       <div className="top3-title">
-                        {item.rank} vieta - {getLayerName(item.layer)}
+                        {item.rank} vieta - {item.forestType}, {item.municipality}, {item.county}
                       </div>
                       <div className="top3-score">
-                        Investicinis indeksas: <strong>{item.score.toFixed(2)}</strong>
+                        Indeksas: <strong>{item.score.toFixed(2)}</strong>
                       </div>
+                      <button
+                        className="top3-btn"
+                        onClick={() => handleTop3Click(item)}
+                      >
+                        Atidaryti žemėlapyje
+                      </button>
                     </div>
                   </div>
                 ))}
