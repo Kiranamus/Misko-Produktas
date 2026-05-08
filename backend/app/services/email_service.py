@@ -1,4 +1,5 @@
 import os
+
 import requests
 from dotenv import load_dotenv
 
@@ -41,7 +42,7 @@ def send_password_reset_email(to_email: str, reset_link: str) -> None:
     <h2>ForestForYou slaptažodžio atkūrimas</h2>
     <p>Gavome prašymą atkurti jūsų slaptažodį.</p>
     <p><a href="{reset_link}">Atkurti slaptažodį</a></p>
-    <p>Jeigu jūs šio prašymo nesiuntėte, ignoruokite šį laišką.</p>
+    <p>Jeigu šio prašymo nesiuntėte, ignoruokite šį laišką.</p>
     """
 
     send_email(

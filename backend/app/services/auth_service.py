@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 import os
+
 from app.services.email_service import send_password_reset_email
 
 from ..auth import (
@@ -25,7 +26,11 @@ from ..schemas_auth import (
 )
 
 
-INVALID_TOKEN_ERROR = HTTPException(status_code=401, detail="Invalid token")
+INVALID_TOKEN_ERROR = HTTPException(status_code=401, detail="Neteisingas prisijungimo tokenas.")
+PASSWORD_RULES_MESSAGE = (
+    "Slaptažodis turi būti bent 8 simbolių, turėti bent vieną didžiąją raidę, "
+    "bent vieną skaičių ir bent vieną specialų simbolį."
+)
 
 
 def build_authenticated_user_payload(user: User) -> dict:
@@ -83,16 +88,35 @@ def get_current_user_from_token(db: Session, token: str) -> User:
     username = decode_username_from_token(token)
     user = db.query(User).filter(User.username == username).first()
     if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="Naudotojas nerastas.")
     return user
 
 
+def validate_password_strength(password: str) -> None:
+    has_upper = any(char.isupper() for char in password)
+    has_digit = any(char.isdigit() for char in password)
+    has_special = any(not char.isalnum() for char in password)
+
+    if len(password) < 8 or not has_upper or not has_digit or not has_special:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=PASSWORD_RULES_MESSAGE,
+        )
+
+
+def build_frontend_url(frontend_url: str) -> str:
+    parsed = urlsplit(frontend_url.strip())
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
+
+
 def register_user(db: Session, user_data: RegisterRequest) -> dict:
+    validate_password_strength(user_data.password)
+
     existing_user = get_user_by_email(db, user_data.email)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this email already exists",
+            detail="Naudotojas su šiuo el. pašto adresu jau egzistuoja.",
         )
 
     db_user = User(
@@ -100,13 +124,17 @@ def register_user(db: Session, user_data: RegisterRequest) -> dict:
         email=user_data.email,
         full_name=user_data.name,
         hashed_password=get_password_hash(user_data.password),
+        email_verified=True,
     )
 
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
 
-    return {"message": "User created successfully", "user_id": db_user.id}
+    return {
+        "message": "Paskyra sukurta sėkmingai. Dabar galite prisijungti.",
+        "user_id": db_user.id,
+    }
 
 
 def login_user(db: Session, user_data: LoginRequest) -> dict:
@@ -114,15 +142,10 @@ def login_user(db: Session, user_data: LoginRequest) -> dict:
     if not user or not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail="Neteisingas el. paštas arba slaptažodis.",
         )
 
     return build_login_response(user)
-
-
-def build_frontend_url(frontend_url: str) -> str:
-    parsed = urlsplit(frontend_url.strip())
-    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
 
 
 def create_password_reset_token(
@@ -133,7 +156,7 @@ def create_password_reset_token(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El. paštas nerastas duomenų bazėje",
+            detail="El. paštas nerastas duomenų bazėje.",
         )
 
     token = assign_password_reset_token(user)
@@ -142,7 +165,14 @@ def create_password_reset_token(
     frontend_url = build_frontend_url(os.getenv("FRONTEND_URL", "https://forestforyou.eu"))
     reset_link = f"{frontend_url}/#/reset-password-confirm?token={token}"
 
-    send_password_reset_email(user.email, reset_link)
+    try:
+        send_password_reset_email(user.email, reset_link)
+    except Exception as e:
+        print("EMAIL SEND ERROR:", e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Nepavyko išsiųsti el. laiško: {str(e)}"
+        )
 
     return ForgotPasswordResponse(token="email_sent")
 
@@ -156,10 +186,11 @@ def reset_user_password(db: Session, request: ResetPasswordRequest) -> dict:
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired token",
+            detail="Nuoroda nebegalioja arba yra neteisinga.",
         )
 
+    validate_password_strength(request.new_password)
     clear_password_reset_state(user, request.new_password)
     db.commit()
 
-    return {"message": "Password reset successfully"}
+    return {"message": "Slaptažodis pakeistas sėkmingai."}

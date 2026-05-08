@@ -21,5 +21,11 @@ export async function resetPassword(payload) {
 }
 
 export function getAuthErrorMessage(error, fallbackMessage) {
-  return error.response?.data?.detail || fallbackMessage;
+  const detail = error.response?.data?.detail;
+
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg).join(" ");
+  }
+
+  return detail || fallbackMessage;
 }

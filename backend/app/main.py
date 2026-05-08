@@ -64,13 +64,13 @@ def get_current_user(token: HTTPAuthorizationCredentials = Depends(security), db
         payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Neteisingas prisijungimo tokenas.")
         user = db.query(User).filter(User.username == username).first()
         if user is None:
-            raise HTTPException(status_code=401, detail="User not found")
+            raise HTTPException(status_code=401, detail="Naudotojas nerastas.")
         return user
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Neteisingas prisijungimo tokenas.")
 
 class PaymentIntentRequest(BaseModel):
     amount: int
@@ -92,8 +92,8 @@ async def create_payment_intent(payment: PaymentIntentRequest):
             "clientSecret": intent.client_secret,
             "paymentIntentId": intent.id
         }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Mokėjimo inicijuoti nepavyko.")
 
 @app.get("/api/payment-status/{payment_intent_id}")
 async def get_payment_status(payment_intent_id: str):
@@ -104,8 +104,8 @@ async def get_payment_status(payment_intent_id: str):
             "amount": intent.amount,
             "currency": intent.currency
         }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Mokėjimo būsenos patikrinti nepavyko.")
 
 @app.post("/api/record-purchase")
 async def record_purchase(
@@ -117,9 +117,17 @@ async def record_purchase(
         PurchasedPlan.user_id == current_user.id,
         PurchasedPlan.is_active == True
     ).all()
-    
-    for plan in existing_plans:
-        plan.is_active = False
+
+    active_other_plan = next(
+        (plan for plan in existing_plans if plan.plan_id != purchase.plan_id),
+        None,
+    )
+
+    if active_other_plan:
+        raise HTTPException(
+            status_code=409,
+            detail="Prieš įsigydami kitą planą, atšaukite dabartinį planą.",
+        )
     
     existing = db.query(PurchasedPlan).filter(
         PurchasedPlan.user_id == current_user.id,
@@ -156,6 +164,23 @@ async def record_purchase(
     
     return {"success": True}
 
+
+@app.post("/api/cancel-active-plan")
+async def cancel_active_plan(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    active_plans = db.query(PurchasedPlan).filter(
+        PurchasedPlan.user_id == current_user.id,
+        PurchasedPlan.is_active == True
+    ).all()
+
+    for plan in active_plans:
+        plan.is_active = False
+
+    db.commit()
+    return {"success": True}
+
 @app.get("/api/user-plans")
 async def get_user_plans(
     db: Session = Depends(get_db),
@@ -176,7 +201,7 @@ async def get_user_plans(
             continue
         active_plans.append(purchase.plan_id)
     
-    return {"purchased_plans": active_plans}
+    return {"purchased_plans": active_plans, "active_plan": active_plans[0] if active_plans else None}
 
 @app.get("/api/has-active-plan")
 async def has_active_plan(

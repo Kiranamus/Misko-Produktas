@@ -15,22 +15,14 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-API.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.log("Token expired, logging out...");
+    const requestUrl = error.config?.url || "";
+    const isAuthFormRequest = ["/login", "/register", "/forgot-password", "/reset-password"]
+      .some((path) => requestUrl.includes(path));
+
+    if (error.response?.status === 401 && !isAuthFormRequest && localStorage.getItem("token")) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";

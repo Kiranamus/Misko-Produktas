@@ -71,8 +71,8 @@ export function buildFeaturePopupContent(properties = {}) {
     <b>Miško veiklos ribojimų indeksas:</b> ${formatValue(restrictions)}<br/>
     ${restrictions != null ? getRestrictionsRating(restrictions) : "-"}<br/><br/>
     <b>Dirvožemio indeksas:</b> ${formatValue(soil)}<br/>
-    Dirvožemio rodikliai ${soil != null ? getSoilRating(soil) : "-"}<br/><br/>
+    Dirvožemio rodikliai: ${soil != null ? getSoilRating(soil) : "-"}<br/><br/>
     <b>Kelių indeksas:</b> ${formatValue(road)}<br/>
-    Susisiekimas ${road != null ? getRoadRating(road) : "-"}
+    Susisiekimas: ${road != null ? getRoadRating(road) : "-"}
   `;
 }

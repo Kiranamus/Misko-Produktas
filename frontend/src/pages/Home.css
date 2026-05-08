@@ -88,7 +88,7 @@
   font-size: clamp(56px, 8vw, 96px);
   line-height: 0.94;
   font-weight: 900;
-  letter-spacing: -3px;
+  letter-spacing: 0;
   color: #143627;
 }
 
@@ -157,10 +157,9 @@
   box-shadow: 0 24px 48px rgba(28, 51, 39, 0.12);
 }
 
-/* Purchased plan styles */
 .plan-card.purchased {
-  opacity: 0.75;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(47, 107, 77, 0.20);
 }
 
 .plan-card.purchased:hover {
@@ -182,7 +181,7 @@
 }
 
 .plan-card.purchased h3 {
-  color: #8ba89a;
+  color: #173b2c;
 }
 
 .plan-card p {
@@ -200,7 +199,7 @@
 }
 
 .plan-card.purchased .plan-price {
-  color: #8ba89a;
+  color: #2f6b4d;
 }
 
 .primary-btn,
@@ -233,6 +232,110 @@
 
 .disabled-btn:hover {
   transform: none;
+}
+
+.purchased-plan-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.go-map-btn {
+  background: linear-gradient(135deg, #1f5d3e, #3f8a5f);
+  box-shadow: 0 14px 28px rgba(47, 107, 77, 0.24);
+}
+
+.cancel-plan-home-btn {
+  width: 100%;
+  border: 1px solid rgba(138, 65, 55, 0.22);
+  border-radius: 12px;
+  padding: 12px 18px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #7a392f;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.cancel-plan-home-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(138, 65, 55, 0.38);
+  background: #fff8f6;
+}
+
+.cancel-plan-home-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.plans-notice {
+  max-width: 620px;
+  margin: -12px auto 24px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: #245c42;
+  background: rgba(47, 107, 77, 0.10);
+  border: 1px solid rgba(47, 107, 77, 0.16);
+  font-weight: 700;
+  text-align: center;
+}
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(13, 36, 25, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.confirm-dialog {
+  width: min(440px, 100%);
+  padding: 24px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(37, 92, 66, 0.12);
+  box-shadow: 0 24px 60px rgba(13, 36, 25, 0.22);
+}
+
+.confirm-dialog h3 {
+  margin: 0 0 10px;
+  color: #173a2d;
+  font-size: 24px;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: #607569;
+  line-height: 1.55;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.confirm-actions .secondary-btn,
+.confirm-actions .danger-btn {
+  flex: 1;
+}
+
+.danger-btn {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  background: #8a3d32;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.danger-btn:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
 }
 
 .team-section {
@@ -308,7 +411,7 @@
 
   .hero-title {
     font-size: clamp(42px, 14vw, 62px);
-    letter-spacing: -2px;
+    letter-spacing: 0;
   }
 
   .hero-subtitle,

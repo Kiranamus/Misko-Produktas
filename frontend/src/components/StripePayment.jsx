@@ -2,6 +2,7 @@ import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { API } from "../api";
+import { useLanguage } from "../context/LanguageContext";
 import "../pages/PlanAccess.css";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -9,14 +10,15 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 function CheckoutForm({ amount, onSuccess, onError }) {
   const stripe = useStripe();
   const elements = useElements();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    
+
     if (!stripe || !elements) {
-      setErrorMessage("Mokėjimo sistema dar nėra pasiruošusi. Palaukite momentą.");
+      setErrorMessage(t("paymentSystemLoading"));
       return;
     }
 
@@ -24,14 +26,12 @@ function CheckoutForm({ amount, onSuccess, onError }) {
     setErrorMessage(null);
 
     try {
-      console.log("Creating payment intent for amount:", amount);
       const response = await API.post("/api/create-payment-intent", {
         amount: Math.round(amount * 100),
-        currency: "eur"
+        currency: "eur",
       });
 
       const { clientSecret } = response.data;
-      console.log("Client secret received");
 
       const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
         payment_method: {
@@ -40,26 +40,23 @@ function CheckoutForm({ amount, onSuccess, onError }) {
       });
 
       if (confirmError) {
-        console.error("Payment error:", confirmError);
-        setErrorMessage(confirmError.message);
+        setErrorMessage(t("paymentFailed"));
         onError?.(confirmError);
       } else if (paymentIntent?.status === "succeeded") {
-        console.log("Payment successful:", paymentIntent);
         onSuccess?.(paymentIntent);
       }
-    } catch (err) {
-      console.error("Error:", err);
-      setErrorMessage(err.response?.data?.detail || err.message || "Klaida apdorojant mokėjimą");
-      onError?.(err);
+    } catch (error) {
+      setErrorMessage(t("paymentFailed"));
+      onError?.(error);
     } finally {
       setLoading(false);
     }
   };
 
-   return (
+  return (
     <form onSubmit={handleSubmit}>
       <div className="stripe-card-element">
-        <CardElement 
+        <CardElement
           options={{
             style: {
               base: {
@@ -77,20 +74,20 @@ function CheckoutForm({ amount, onSuccess, onError }) {
           }}
         />
       </div>
-      
+
       {errorMessage && (
         <div className="stripe-error-message">
           {errorMessage}
         </div>
       )}
-      
+
       <div className="stripe-button-wrapper">
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={!stripe || loading}
           className="stripe-pay-btn"
         >
-          {loading ? "Apdorojama..." : `Mokėti ${amount.toFixed(2)} €`}
+          {loading ? t("processing") : `${t("pay")} ${amount.toFixed(2).replace(".", ",")} €`}
         </button>
       </div>
     </form>
@@ -98,11 +95,12 @@ function CheckoutForm({ amount, onSuccess, onError }) {
 }
 
 export default function StripePayment({ amount, onSuccess, onError }) {
+  const { t } = useLanguage();
+
   if (!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) {
-    console.error("Stripe publishable key is missing!");
     return (
-      <div style={{ color: "red", textAlign: "center", padding: "20px" }}>
-        Klaida: Trūksta Stripe raktų. Pridėkite VITE_STRIPE_PUBLISHABLE_KEY į .env failą.
+      <div className="stripe-error-container">
+        {t("stripeMissing")}
       </div>
     );
   }

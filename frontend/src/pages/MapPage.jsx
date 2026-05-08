@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
-import { GeoJSON, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { GeoJSON, MapContainer, Polygon, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import PageTopbar from "../components/PageTopbar";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { buildFeaturePopupContent, getLayerName } from "../features/map/formatters";
+import { LITHUANIA_BOUNDARY_GEOJSON, LITHUANIA_MASK_RINGS } from "../features/map/lithuaniaBoundary";
 import { useMapData } from "../features/map/useMapData";
 import "./MapPage.css";
 
@@ -27,8 +29,14 @@ const COUNTY_BOUNDS = {
   "vilniaus apskritis": [[54.05, 24.35], [55.55, 26.95]],
 };
 
+const LITHUANIA_BOUNDS = [[53.85, 20.75], [56.45, 26.95]];
+
 function normalizeCountyName(county) {
   return county.trim().toLowerCase();
+}
+
+function getFeatureId(feature) {
+  return feature?.id ?? feature?.properties?.id ?? null;
 }
 
 function MapWatcher({ onViewportChange, onMouseMove }) {
@@ -47,12 +55,11 @@ function MapWatcher({ onViewportChange, onMouseMove }) {
   return null;
 }
 
-function CountyInitialZoom({ selectedCounty, onViewportChange }) {
+function InitialZoom({ selectedCounty, onViewportChange }) {
   const map = useMap();
 
   useEffect(() => {
-    const bounds = COUNTY_BOUNDS[normalizeCountyName(selectedCounty || "")];
-    if (!bounds) return;
+    const bounds = COUNTY_BOUNDS[normalizeCountyName(selectedCounty || "")] || LITHUANIA_BOUNDS;
 
     const timeoutId = window.setTimeout(() => {
       map.invalidateSize();
@@ -113,18 +120,37 @@ function getFeatureStyle(feature, hoveredFeature, selectedFeature) {
   };
 }
 
-function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange, handleMouseMove, coords, mapDataLoading, currentLayer, featureCount, selectedCounty, dataVersion }) {
+function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange, handleMouseMove, coords, mapDataLoading, currentLayer, featureCount, selectedCounty, dataVersion, t }) {
   return (
     <>
       <MapWatcher
         onViewportChange={handleViewportChange}
         onMouseMove={handleMouseMove}
       />
-      <CountyInitialZoom
+      <InitialZoom
         selectedCounty={selectedCounty}
         onViewportChange={handleViewportChange}
       />
       <MapResizeHandler />
+      <Polygon
+        positions={LITHUANIA_MASK_RINGS}
+        pathOptions={{
+          color: "transparent",
+          fillColor: "#eef3ee",
+          fillOpacity: 0.72,
+          interactive: false,
+        }}
+      />
+      <GeoJSON
+        data={LITHUANIA_BOUNDARY_GEOJSON}
+        style={() => ({
+          color: "#1f6b48",
+          weight: 2.5,
+          fillOpacity: 0,
+          dashArray: "6 6",
+          interactive: false,
+        })}
+      />
       {geoData?.features?.length > 0 && (
         <GeoJSON
           key={`${currentLayer}-${featureCount}-${selectedCounty}-${dataVersion}`}
@@ -140,7 +166,7 @@ function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange
       )}
       {mapDataLoading && (
         <div className="loading">
-          Kraunama zemelapio duomenys...
+          {t("mapLoading")}
         </div>
       )}
     </>
@@ -149,6 +175,7 @@ function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange
 
 export default function MapPage() {
   const { isAuthenticated, hasActivePlan, loading: authLoading } = useAuth();
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const [hoveredFeature, setHoveredFeature] = useState(null);
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -156,6 +183,11 @@ export default function MapPage() {
     restrictions: 40,
     soil: 30,
     road: 30,
+  });
+  const [weightInputs, setWeightInputs] = useState({
+    restrictions: "40",
+    soil: "30",
+    road: "30",
   });
 
   const selectedCounty = searchParams.get("county") || "";
@@ -173,6 +205,7 @@ export default function MapPage() {
 
   const mapRef = useRef(null);
   const featureLayerRef = useRef(new WeakMap());
+  const featureLayerByIdRef = useRef(new Map());
 
   const styleFeature = useCallback(
     (feature) => getFeatureStyle(feature, hoveredFeature, selectedFeature),
@@ -181,17 +214,30 @@ export default function MapPage() {
 
   const onEachFeature = useCallback((feature, layer) => {
     featureLayerRef.current.set(feature, layer);
+    const featureId = getFeatureId(feature);
+    if (featureId != null) {
+      featureLayerByIdRef.current.set(String(featureId), layer);
+    }
 
     layer.on({
       mouseover: () => setHoveredFeature(feature),
       mouseout: () => setHoveredFeature(null),
-      click: () => setSelectedFeature(feature),
+      click: (event) => {
+        setSelectedFeature(feature);
+        event.originalEvent?.stopPropagation();
+        layer.openPopup(event.latlng);
+      },
     });
 
-    layer.bindPopup(buildFeaturePopupContent(feature.properties || {}));
+    layer.bindPopup(buildFeaturePopupContent(feature.properties || {}), {
+      autoClose: false,
+      closeOnClick: false,
+      autoPan: false,
+      keepInView: false,
+    });
   }, []);
 
-  const applyWeightChange = (field, rawValue) => {
+  const applyWeightChange = (field, rawValue, syncInput = true) => {
     let newValue = Number(rawValue);
 
     if (Number.isNaN(newValue)) newValue = 0;
@@ -202,25 +248,59 @@ export default function MapPage() {
       const otherSum =
         previous.restrictions + previous.soil + previous.road - previous[field];
       const allowedValue = Math.min(newValue, 100 - otherSum);
+      const nextValue = allowedValue < 0 ? 0 : allowedValue;
+
+      if (syncInput) {
+        setWeightInputs((current) => ({
+          ...current,
+          [field]: String(nextValue),
+        }));
+      }
 
       return {
         ...previous,
-        [field]: allowedValue < 0 ? 0 : allowedValue,
+        [field]: nextValue,
       };
     });
+  };
+
+  const handleWeightInputChange = (field, rawValue) => {
+    if (!/^\d{0,3}$/.test(rawValue)) return;
+
+    setWeightInputs((current) => ({
+      ...current,
+      [field]: rawValue,
+    }));
+
+    if (rawValue !== "") {
+      applyWeightChange(field, rawValue);
+    }
+  };
+
+  const handleWeightInputBlur = (field) => {
+    if (weightInputs[field] === "") {
+      applyWeightChange(field, 0);
+    } else {
+      setWeightInputs((current) => ({
+        ...current,
+        [field]: String(weights[field]),
+      }));
+    }
   };
 
   const openFeaturePopup = useCallback((feature) => {
     if (!feature || !mapRef.current) return;
 
-    const layer = featureLayerRef.current.get(feature);
+    const featureId = getFeatureId(feature);
+    const layer =
+      featureLayerRef.current.get(feature) ||
+      (featureId != null ? featureLayerByIdRef.current.get(String(featureId)) : null);
     if (!layer?.openPopup) return;
 
     const latlng = layer.getBounds ? layer.getBounds().getCenter() : undefined;
     layer.openPopup(latlng);
   }, []);
 
-  // Auto-open popup when selectedFeature changes
   useEffect(() => {
     if (!selectedFeature) return undefined;
 
@@ -246,7 +326,7 @@ export default function MapPage() {
   }, [openFeaturePopup]);
 
   if (authLoading) {
-    return <div className="loading">Tikrinama prieiga...</div>;
+    return <div className="loading">{t("mapAccessCheck")}</div>;
   }
 
   if (!isAuthenticated) {
@@ -259,9 +339,9 @@ export default function MapPage() {
 
   const weightSum = weights.restrictions + weights.soil + weights.road;
   const weightLabels = {
-    restrictions: "Ribojimai",
-    soil: "Dirvozemis",
-    road: "Keliai",
+    restrictions: t("restrictions"),
+    soil: t("soil"),
+    road: t("roads"),
   };
 
   return (
@@ -277,6 +357,7 @@ export default function MapPage() {
                 center={[55.2, 23.9]}
                 zoom={7}
                 minZoom={6}
+                closePopupOnClick={false}
                 preferCanvas
                 style={{ height: "100%", width: "100%" }}
               >
@@ -296,48 +377,29 @@ export default function MapPage() {
                   featureCount={featureCount}
                   selectedCounty={selectedCounty}
                   dataVersion={dataVersion}
+                  t={t}
                 />
               </MapContainer>
             </div>
 
             <div className="card legend-card">
-              <h3>Legenda</h3>
+              <h3>{t("legend")}</h3>
               <div className="legend">
-                <div className="legend-row">
-                  <div className="legend-left">
-                    <span className="legend-box green" />
-                    <span>Puiku</span>
+                {[
+                  ["green", t("excellent"), "0.8-1.0"],
+                  ["light-green", t("good"), "0.6-0.8"],
+                  ["yellow", t("average"), "0.4-0.6"],
+                  ["orange", t("bad"), "0.2-0.4"],
+                  ["red", t("veryBad"), "0.0-0.2"],
+                ].map(([className, label, score]) => (
+                  <div className="legend-row" key={className}>
+                    <div className="legend-left">
+                      <span className={`legend-box ${className}`} />
+                      <span>{label}</span>
+                    </div>
+                    <span className="legend-score">{score}</span>
                   </div>
-                  <span className="legend-score">0.8-1.0</span>
-                </div>
-                <div className="legend-row">
-                  <div className="legend-left">
-                    <span className="legend-box light-green" />
-                    <span>Gerai</span>
-                  </div>
-                  <span className="legend-score">0.6-0.8</span>
-                </div>
-                <div className="legend-row">
-                  <div className="legend-left">
-                    <span className="legend-box yellow" />
-                    <span>Vidutiniskai</span>
-                  </div>
-                  <span className="legend-score">0.4-0.6</span>
-                </div>
-                <div className="legend-row">
-                  <div className="legend-left">
-                    <span className="legend-box orange" />
-                    <span>Blogai</span>
-                  </div>
-                  <span className="legend-score">0.2-0.4</span>
-                </div>
-                <div className="legend-row">
-                  <div className="legend-left">
-                    <span className="legend-box red" />
-                    <span>Labai blogai</span>
-                  </div>
-                  <span className="legend-score">0.0-0.2</span>
-                </div>
+                ))}
               </div>
             </div>
           </div>
@@ -345,19 +407,19 @@ export default function MapPage() {
 
         <div className="info-column">
           <div className="card status-card">
-            <h3>Busena</h3>
+            <h3>{t("status")}</h3>
             <div className="status-main">
-              {mapDataLoading ? "Kraunama duomenu istrauka..." : "Duomenys paruosti perziurai"}
+              {mapDataLoading ? t("dataLoadingShort") : t("dataReady")}
             </div>
             <div className="status-sub">
               <span className="status-tag">{getLayerName(currentLayer)}</span>
-              <span className="status-tag">Objektu kiekis: {featureCount}</span>
+              <span className="status-tag">{t("objectCount")}: {featureCount}</span>
               {selectedCounty && <span className="status-tag">{selectedCounty}</span>}
             </div>
           </div>
 
           <div className="card weights-panel">
-            <h3>Naudotojo svoriai</h3>
+            <h3>{t("userWeights")}</h3>
             {["restrictions", "soil", "road"].map((field) => (
               <div key={field} className="weight-block">
                 <div className="label-row">
@@ -376,27 +438,25 @@ export default function MapPage() {
                     type="number"
                     min="0"
                     max="100"
-                    value={weights[field]}
-                    onChange={(event) => applyWeightChange(field, event.target.value)}
+                    value={weightInputs[field]}
+                    onChange={(event) => handleWeightInputChange(field, event.target.value)}
+                    onBlur={() => handleWeightInputBlur(field)}
                   />
                 </div>
               </div>
             ))}
 
             <div className="weight-sum">
-              Svoriu suma: <strong>{weightSum}</strong> / 100
+              {t("weightsSum")}: <strong>{weightSum}</strong> / 100
             </div>
 
-            <div className="weight-note">
-              Jei bandysi ivesti per didele reiksme, ji bus automatiskai apribota, kad bendra suma
-              nevirsytu 100. Celes su mazesne nei 20 % misko dalimi nerodomos.
-            </div>
+            <div className="weight-note">{t("weightsNote")}</div>
           </div>
 
           <div className="card top3-panel">
-            <h3>Top 3 vietos</h3>
+            <h3>{t("top3")}</h3>
             {top3.length === 0 ? (
-              <div className="top3-score">Siuo metu nera pakankamai duomenu.</div>
+              <div className="top3-score">{t("noTop3")}</div>
             ) : (
               <div className="top3-list">
                 {top3.map((item) => (
@@ -404,16 +464,16 @@ export default function MapPage() {
                     <div className="top3-rank">{item.rank}</div>
                     <div className="top3-content">
                       <div className="top3-title">
-                        {item.rank} vieta - {item.forestType}, {item.municipality}, {item.county}
+                        {item.rank} {t("rank")} - {item.forestType}, {item.municipality}, {item.county}
                       </div>
                       <div className="top3-score">
-                        Indeksas: <strong>{item.score.toFixed(2)}</strong>
+                        {t("index")}: <strong>{item.score.toFixed(2)}</strong>
                       </div>
                       <button
                         className="top3-btn"
                         onClick={() => handleTop3Click(item)}
                       >
-                        Atidaryti žemėlapyje
+                        {t("openOnMap")}
                       </button>
                     </div>
                   </div>

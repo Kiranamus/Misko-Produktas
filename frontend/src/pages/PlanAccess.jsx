@@ -3,53 +3,62 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import PageTopbar from "../components/PageTopbar";
 import StripePayment from "../components/StripePayment";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import "./PlanAccess.css";
 
 const API_BASE = "http://localhost:8000";
 
 const PLAN_CONTENT = {
   county_day: {
-    title: "Vienos dienos narystė vienai apskričiai",
-    description: "Trumpalaikė prieiga konkrečios apskrities duomenų peržiūrai ir investicinio potencialo įvertinimui.",
-    price: 4.99,
-    priceCents: 499,
+    titleKey: "countyDayTitle",
+    descriptionKey: "countyDayDescription",
+    price: 14.99,
+    priceLabel: "14,99 €",
   },
   lithuania_day: {
-    title: "Vienos dienos narystė visai Lietuvai",
-    description: "Vienos dienos prieiga visos Lietuvos objektų peržiūrai, skirta greitam rinkos nuskanavimui.",
-    price: 9.99,
-    priceCents: 999,
+    titleKey: "lithuaniaDayTitle",
+    descriptionKey: "lithuaniaDayDescription",
+    price: 24.99,
+    priceLabel: "24,99 €",
   },
   lithuania_month: {
-    title: "Mėnesio prenumerata visai Lietuvai",
-    description: "Pilnesniam darbui skirta prenumerata, kai reikia reguliariai grįžti prie visos Lietuvos duomenų.",
-    price: 29.99,
-    priceCents: 2999,
+    titleKey: "lithuaniaMonthTitle",
+    descriptionKey: "lithuaniaMonthDescription",
+    price: 39.99,
+    priceLabel: "39,99 €",
   },
 };
 
 export default function PlanAccess() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { t } = useLanguage();
   const [counties, setCounties] = useState([]);
-  const [loadingCounties, setLoadingCounties] = useState(false);
+  const [loadingCounties, setLoadingCounties] = useState(true);
   const [selectedCounty, setSelectedCounty] = useState("");
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
 
-  const { recordPurchase, isPlanPurchased } = useAuth();
+  const { recordPurchase, isPlanPurchased, hasActivePlan, activePlan } = useAuth();
 
   const planId = searchParams.get("plan") || "county_day";
   const plan = PLAN_CONTENT[planId] || PLAN_CONTENT.county_day;
   const needsCounty = planId === "county_day";
-
   const alreadyPurchased = isPlanPurchased(planId);
+  const blockedByOtherPlan = hasActivePlan && activePlan !== planId && !alreadyPurchased;
+
+  const paramsForMap = useMemo(() => {
+    const params = new URLSearchParams();
+    if (needsCounty && selectedCounty) {
+      params.set("county", selectedCounty);
+    }
+    return params.toString();
+  }, [needsCounty, selectedCounty]);
 
   useEffect(() => {
     if (!needsCounty) return;
 
     let active = true;
-    setLoadingCounties(true);
 
     fetch(`${API_BASE}/counties`)
       .then((res) => {
@@ -64,8 +73,8 @@ export default function PlanAccess() {
           setSelectedCounty((current) => current || items[0]);
         }
       })
-      .catch((err) => {
-        console.error("Nepavyko užkrauti apskričių:", err);
+      .catch(() => {
+        setPaymentError(t("genericError"));
       })
       .finally(() => {
         if (active) setLoadingCounties(false);
@@ -74,11 +83,9 @@ export default function PlanAccess() {
     return () => {
       active = false;
     };
-  }, [needsCounty]);
+  }, [needsCounty, t]);
 
   const handlePaymentSuccess = async (paymentIntent) => {
-    console.log("Payment successful:", paymentIntent);
-
     try {
       await recordPurchase(planId, paymentIntent.id);
 
@@ -87,75 +94,24 @@ export default function PlanAccess() {
 
       localStorage.setItem("payment_completed", "true");
       localStorage.setItem("payment_plan", planId);
-      localStorage.setItem("payment_amount", plan.price);
+      localStorage.setItem("payment_amount", String(plan.price));
 
       if (needsCounty && selectedCounty) {
         localStorage.setItem("purchased_county", selectedCounty);
       }
-
-      alert(`Mokėjimas sėkmingas! Jūs turite prieigą prie ${plan.title}`);
-    } catch (error) {
-      console.error("Failed to record purchase:", error);
-      setPaymentError("Mokėjimas atliktas, bet įrašyti nepavyko.");
+    } catch {
+      setPaymentError(t("paymentRecordedError"));
     }
   };
 
-  const handlePaymentError = (error) => {
-    console.error("Payment failed:", error);
-    setPaymentError(error.message || "Mokėjimas nepavyko. Bandykite dar kartą.");
+  const handlePaymentError = () => {
+    setPaymentError(t("paymentFailed"));
     setPaymentSuccess(false);
   };
 
   const handleGoToMap = () => {
-    const params = new URLSearchParams();
-
-    if (needsCounty && selectedCounty) {
-      params.set("county", selectedCounty);
-    }
-
-    navigate(`/map${params.toString() ? `?${params.toString()}` : ""}`);
+    navigate(`/map${paramsForMap ? `?${paramsForMap}` : ""}`);
   };
-
-  if (alreadyPurchased) {
-    return (
-      <div className="plan-page">
-        <PageTopbar />
-
-        <main className="plan-main">
-          <section className="plan-card">
-            <span className="plan-chip purchased-chip">Jau įsigyta</span>
-            <h1>{plan.title}</h1>
-            <p>{plan.description}</p>
-            <div className="plan-price">
-              <span className="price-amount">{plan.price.toFixed(2)} €</span>
-              {planId === "lithuania_month" && <span className="price-period">/ mėn.</span>}
-            </div>
-          </section>
-
-          <section className="checkout-card">
-            <h2>Mokėjimas</h2>
-
-            <div className="payment-success">
-              <p>Jūs jau turite šį planą! Galite naudotis žemėlapiu.</p>
-              <button className="primary-btn" onClick={handleGoToMap}>
-                Eiti į žemėlapį
-              </button>
-            </div>
-
-            <div className="plan-actions">
-              <button
-                className="secondary-btn"
-                onClick={() => navigate("/")}
-                style={{ marginTop: "16px" }}
-              >
-                Grįžti į pradinį puslapį
-              </button>
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div className="plan-page">
@@ -163,34 +119,47 @@ export default function PlanAccess() {
 
       <main className="plan-main">
         <section className="plan-card">
-          <span className="plan-chip">Pasirinktas planas</span>
-          <h1>{plan.title}</h1>
-          <p>{plan.description}</p>
+          <span className={`plan-chip ${alreadyPurchased ? "purchased-chip" : ""}`}>
+            {alreadyPurchased ? t("purchased") : t("selectedPlan")}
+          </span>
+          <h1>{t(plan.titleKey)}</h1>
+          <p>{t(plan.descriptionKey)}</p>
           <div className="plan-price">
-            <span className="price-amount">{plan.price.toFixed(2)} €</span>
-            {planId === "lithuania_month" && <span className="price-period">/ mėn.</span>}
+            <span className="price-amount">{plan.priceLabel}</span>
+            {planId === "lithuania_month" && <span className="price-period">/ {t("monthPeriod")}</span>}
           </div>
         </section>
 
         <section className="checkout-card">
-          <h2>Mokėjimas</h2>
+          <h2>{t("payment")}</h2>
 
-          {paymentSuccess ? (
+          {alreadyPurchased ? (
             <div className="payment-success">
-              <p>Mokėjimas sėkmingas! Jūs jau turite prieigą.</p>
+              <p>{t("alreadyPurchasedText")}</p>
               <button className="primary-btn" onClick={handleGoToMap}>
-                Eiti į žemėlapį
+                {t("goToMap")}
+              </button>
+            </div>
+          ) : blockedByOtherPlan ? (
+            <div className="payment-error neutral">
+              <p>{t("activePlanBlocks")}</p>
+            </div>
+          ) : paymentSuccess ? (
+            <div className="payment-success">
+              <p>{t("paymentSuccess")}</p>
+              <button className="primary-btn" onClick={handleGoToMap}>
+                {t("goToMap")}
               </button>
             </div>
           ) : (
             <>
               {needsCounty && (
                 <div className="municipality-select-block">
-                  <label htmlFor="county">Pasirinkite apskritį</label>
+                  <label htmlFor="county">{t("selectCounty")}</label>
                   <select
                     id="county"
                     value={selectedCounty}
-                    onChange={(e) => setSelectedCounty(e.target.value)}
+                    onChange={(event) => setSelectedCounty(event.target.value)}
                     disabled={loadingCounties || counties.length === 0}
                   >
                     {counties.map((county) => (
@@ -199,7 +168,7 @@ export default function PlanAccess() {
                       </option>
                     ))}
                   </select>
-                  {loadingCounties && <span className="helper-text">Kraunamas apskričių sąrašas...</span>}
+                  {loadingCounties && <span className="helper-text">{t("loadingCounties")}</span>}
                 </div>
               )}
 
@@ -219,13 +188,19 @@ export default function PlanAccess() {
             </>
           )}
 
+          {paymentError && (alreadyPurchased || blockedByOtherPlan) && (
+            <div className="payment-error">
+              <p>{paymentError}</p>
+            </div>
+          )}
+
           <div className="plan-actions">
             <button
               className="secondary-btn"
               onClick={() => navigate("/")}
               style={{ marginTop: "16px" }}
             >
-              Grįžti į pradinį puslapį
+              {t("backHome")}
             </button>
           </div>
         </section>

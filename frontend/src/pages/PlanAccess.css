@@ -244,6 +244,18 @@
   margin: 0;
 }
 
+.payment-error.neutral {
+  background: rgba(216, 185, 76, 0.14);
+}
+
+.payment-error.neutral p {
+  color: #6a5520;
+}
+
+.cancel-plan-btn {
+  margin-top: 14px;
+}
+
 .plan-chip.purchased-chip {
   background: #2f6b4d;
   color: white;

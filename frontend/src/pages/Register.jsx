@@ -1,30 +1,65 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import PageTopbar from "../components/PageTopbar";
+import { useLanguage } from "../context/LanguageContext";
 import { getAuthErrorMessage, registerUser } from "../services/authApi";
 import "./Register.css";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_PATTERN = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
 export default function Register() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [formError, setFormError] = useState("");
+  const [formSuccess, setFormSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const validateForm = () => {
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      return t("invalidEmail");
+    }
+
+    if (!PASSWORD_PATTERN.test(password)) {
+      return t("strongPassword");
+    }
+
+    if (password !== confirmPassword) {
+      return t("passwordsDoNotMatch");
+    }
+
+    return "";
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormError("");
+    setFormSuccess("");
 
-    if (password !== confirmPassword) {
-      alert("Slaptažodžiai nesutampa");
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
 
+    setSubmitting(true);
+
     try {
-      await registerUser({ name, email, password });
-      alert("Paskyra sukurta sėkmingai!");
-      navigate("/login");
+      const response = await registerUser({ name, email: email.trim(), password });
+      setFormSuccess(response.message || "Paskyra sukurta sėkmingai.");
+      setName("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      window.setTimeout(() => navigate("/login"), 800);
     } catch (error) {
-      alert(getAuthErrorMessage(error, "Įvyko klaida"));
+      setFormError(getAuthErrorMessage(error, t("genericError")));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -34,60 +69,70 @@ export default function Register() {
 
       <main className="register-content">
         <div className="auth-card">
-          <h1>Registracija</h1>
-          <p>Sukurkite paskyrą ir pradėkite naudoti sistemą.</p>
+          <h1>{t("registerTitle")}</h1>
+          <p>{t("registerIntro")}</p>
 
-          <form className="auth-form" onSubmit={handleSubmit}>
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <label className="auth-label">
-              Vardas
+              {t("name")}
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 required
-                placeholder="Vardas"
+                placeholder={t("name")}
               />
             </label>
 
             <label className="auth-label">
-              El. paštas
+              {t("email")}
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 required
-                placeholder="ivestas@email.com"
+                pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
+                placeholder="vardas@example.com"
               />
             </label>
 
             <label className="auth-label">
-              Slaptažodis
+              {t("password")}
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
                 required
-                placeholder="Slaptažodis"
+                minLength={8}
+                pattern="^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$"
+                placeholder={t("password")}
               />
             </label>
 
             <label className="auth-label">
-              Patvirtinkite slaptažodį
+              {t("confirmPassword")}
               <input
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(event) => setConfirmPassword(event.target.value)}
                 required
-                placeholder="Pakartokite slaptažodį"
+                placeholder={t("confirmPassword")}
               />
             </label>
 
-            <button type="submit" className="primary-btn">Kurti paskyrą</button>
+            <div className="password-hint">{t("strongPassword")}</div>
+
+            {formError && <div className="form-message error">{formError}</div>}
+            {formSuccess && <div className="form-message success">{formSuccess}</div>}
+
+            <button type="submit" className="primary-btn" disabled={submitting}>
+              {submitting ? t("processing") : t("createAccount")}
+            </button>
           </form>
 
           <div className="auth-bottom">
-            <p>Jau turite paskyrą?</p>
-            <NavLink to="/login" className="secondary-btn">Prisijungti</NavLink>
+            <p>{t("alreadyHaveAccount")}</p>
+            <NavLink to="/login" className="secondary-btn">{t("login")}</NavLink>
           </div>
         </div>
       </main>

@@ -21,6 +21,7 @@ from ..schemas_auth import (
     ResetPasswordRequest,
 )
 from ..services.auth_service import (
+    build_login_response,
     create_password_reset_token,
     get_current_user_from_token,
     login_user,
@@ -59,6 +60,11 @@ async def register(user_data: RegisterRequest, db: Session = Depends(get_db)):
 @router.post("/login")
 async def login(user_data: LoginRequest, db: Session = Depends(get_db)):
     return login_user(db, user_data)
+
+
+@router.post("/refresh-token")
+async def refresh_token(current_user: User = Depends(get_current_user)):
+    return build_login_response(current_user)
 
 
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)

@@ -1,41 +1,68 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageTopbar from "../components/PageTopbar";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import "./Home.css";
 
-const plans = [
+const planDefinitions = [
   {
     id: "county_day",
-    title: "Vienos dienos narystė duomenims iš vienos apskrities",
-    description:
-      "Trumpalaikė prieiga konkrečiai apskričiai, kai reikia greitai peržiūrėti vienos teritorijos objektus ir jų investicinį potencialą.",
-    price: "4.99 €",
+    titleKey: "countyDayTitle",
+    descriptionKey: "countyDayDescription",
+    price: "14,99 €",
   },
   {
     id: "lithuania_day",
-    title: "Vienos dienos narystė visai Lietuvai",
-    description:
-      "Skirta trumpam visos Lietuvos objektų palyginimui, kai norisi apžvelgti platesnį vaizdą per vieną dieną.",
-    price: "9.99 €",
+    titleKey: "lithuaniaDayTitle",
+    descriptionKey: "lithuaniaDayDescription",
+    price: "24,99 €",
   },
   {
     id: "lithuania_month",
-    title: "Mėnesio prenumerata visai Lietuvai",
-    description:
-      "Patogiausias pasirinkimas ilgesniam darbui su žemėlapiu, kai prie duomenų ir analizės reikia grįžti nuolat.",
-    price: "29.99 € / mėn.",
+    titleKey: "lithuaniaMonthTitle",
+    descriptionKey: "lithuaniaMonthDescription",
+    price: "39,99 €",
+    monthly: true,
   },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
-  const { isAuthenticated, isPlanPurchased } = useAuth();
+  const { isAuthenticated, isPlanPurchased, hasActivePlan, activePlan, getPurchasedCounty, cancelActivePlan } = useAuth();
+  const { t } = useLanguage();
+  const [planNotice, setPlanNotice] = useState("");
+  const [cancelingPlan, setCancelingPlan] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  const handlePlanClick = (planId) => {
+  const handlePlanClick = (planId, purchased) => {
     if (!isAuthenticated) {
       navigate("/login");
-    } else {
-      navigate(`/plan-access?plan=${planId}`);
+      return;
+    }
+
+    if (purchased) {
+      const county = getPurchasedCounty();
+      const params = planId === "county_day" && county ? `?county=${encodeURIComponent(county)}` : "";
+      navigate(`/map${params}`);
+      return;
+    }
+
+    navigate(`/plan-access?plan=${planId}`);
+  };
+
+  const handleCancelPlan = async () => {
+    setPlanNotice("");
+    setCancelingPlan(true);
+
+    try {
+      await cancelActivePlan();
+      setPlanNotice(t("planCancelled"));
+    } catch {
+      setPlanNotice(t("genericError"));
+    } finally {
+      setCancelingPlan(false);
+      setShowCancelConfirm(false);
     }
   };
 
@@ -43,68 +70,100 @@ export default function Home() {
     <div className="home-page">
       <PageTopbar />
 
-      <div className="home-bg home-bg-1" />
-      <div className="home-bg home-bg-2" />
-      <div className="home-bg home-bg-3" />
-
       <main className="home-main">
         <section className="home-card intro-card">
-          <span className="section-chip">Miškininkystės analizės ir investavimo platforma</span>
+          <span className="section-chip">{t("heroChip")}</span>
           <h1 className="hero-title">
             Forest
             <span>ForYou</span>
           </h1>
-          <p className="hero-subtitle">
-            Interaktyvi sistema miško teritorijų vertinimui, skirta padėti aiškiau suprasti investicinį potencialą pagal
-            geoduomenis, ribojimus, dirvožemio savybes ir susisiekimą.
-          </p>
-          <p className="hero-note">
-            Sprendimas orientuotas į duomenimis pagrįstą pasirinkimą: naudotojas mato prioritetines teritorijas žemėlapyje
-            ir gali koreguoti vertinimo svorius pagal savo tikslus.
-          </p>
-          <p className="hero-note">
-            Sistema padeda greičiau susiaurinti paiešką ir suprasti, kurios vietovės atrodo patraukliausios pagal
-            pasirinktą investavimo logiką.
-          </p>
+          <p className="hero-subtitle">{t("heroSubtitle")}</p>
+          <p className="hero-note">{t("heroNote")}</p>
         </section>
 
         <section className="home-card about-card" id="about-project">
-          <h2>Apie projektą</h2>
-          <p>
-            ForestForYou yra kuriama SaaS tipo miškininkystės analizės platforma, orientuota į patogų teritorijų
-            vertinimą ir aiškų investavimo sprendimų palaikymą. Sistemos tikslas yra padėti naudotojui greitai pamatyti,
-            kurios vietovės gali būti palankiausios pagal pasirinktus kriterijus.
-          </p>
+          <h2>{t("aboutProject")}</h2>
+          <p>{t("aboutProjectText")}</p>
         </section>
 
         <section className="plans-section">
-          <h2 className="plans-title">Pasirinkite planą</h2>
+          <h2 className="plans-title">{t("choosePlan")}</h2>
+          {planNotice && <div className="plans-notice">{planNotice}</div>}
           <div className="plans-grid">
-            {plans.map((plan) => {
+            {planDefinitions.map((plan) => {
               const purchased = isAuthenticated && isPlanPurchased(plan.id);
-              
+              const blockedByOtherPlan = isAuthenticated && hasActivePlan && !purchased && activePlan !== plan.id;
+
               return (
                 <article className={`plan-card ${purchased ? "purchased" : ""}`} key={plan.id}>
-                  <span className="plan-chip">{purchased ? "✓ Įsigyta" : "Planas"}</span>
-                  <h3>{plan.title}</h3>
-                  <p>{plan.description}</p>
-                  <div className="plan-price">{plan.price}</div>
-                  <button
-                    className={purchased ? "disabled-btn" : "primary-btn"}
-                    onClick={() => handlePlanClick(plan.id)}
-                    disabled={purchased}
-                  >
-                    {purchased ? "Jau įsigyta" : "Pasirinkti"}
-                  </button>
+                  <span className="plan-chip">{purchased ? t("purchased") : t("plan")}</span>
+                  <h3>{t(plan.titleKey)}</h3>
+                  <p>{t(plan.descriptionKey)}</p>
+                  <div className="plan-price">
+                    {plan.price}
+                    {plan.monthly && ` / ${t("monthPeriod")}`}
+                  </div>
+                  {purchased ? (
+                    <div className="purchased-plan-actions">
+                      <button
+                        className="primary-btn go-map-btn"
+                        onClick={() => handlePlanClick(plan.id, true)}
+                      >
+                        {t("goToMap")}
+                      </button>
+                      <button
+                        className="cancel-plan-home-btn"
+                        onClick={() => setShowCancelConfirm(true)}
+                        disabled={cancelingPlan}
+                      >
+                        {cancelingPlan ? t("processing") : t("cancelPlan")}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className={blockedByOtherPlan ? "disabled-btn" : "primary-btn"}
+                      onClick={() => handlePlanClick(plan.id, false)}
+                      disabled={blockedByOtherPlan}
+                    >
+                      {blockedByOtherPlan ? t("currentPlanFirst") : t("choose")}
+                    </button>
+                  )}
                 </article>
               );
             })}
           </div>
         </section>
 
+        {showCancelConfirm && (
+          <div className="confirm-backdrop" role="presentation">
+            <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-plan-title">
+              <h3 id="cancel-plan-title">{t("cancelPlanTitle")}</h3>
+              <p>{t("cancelPlanText")}</p>
+              <div className="confirm-actions">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setShowCancelConfirm(false)}
+                  disabled={cancelingPlan}
+                >
+                  {t("keepPlan")}
+                </button>
+                <button
+                  type="button"
+                  className="danger-btn"
+                  onClick={handleCancelPlan}
+                  disabled={cancelingPlan}
+                >
+                  {cancelingPlan ? t("processing") : t("confirmCancelPlan")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <section className="team-section">
           <div className="home-card team-card">
-            <h2>Komandos nariai</h2>
+            <h2>{t("teamMembers")}</h2>
             <div className="team-list">
               <span>Matas Kučas</span>
               <span>Mindaugas Matulaitis</span>
@@ -116,7 +175,7 @@ export default function Home() {
           </div>
 
           <div className="home-card mentor-card">
-            <h2>Mentorius</h2>
+            <h2>{t("mentor")}</h2>
             <p>Prof. Rytis Maskeliūnas</p>
           </div>
         </section>
