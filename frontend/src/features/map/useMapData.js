@@ -17,6 +17,12 @@ function buildTopThree(features) {
       rank: index + 1,
       score: feature.properties.final_score,
       layer: feature.properties.layer,
+      forestType: feature.properties.forest_type || "-",
+      municipality: feature.properties.municipality || "-",
+      county: feature.properties.county || "-",
+      feature,
+      geometry: feature.geometry,
+      properties: feature.properties,
     }));
 }
 
@@ -47,8 +53,10 @@ export function useMapData(weights, selectedCounty) {
   const [currentLayer, setCurrentLayer] = useState("coarse");
   const [coords, setCoords] = useState(null);
   const [top3, setTop3] = useState([]);
+  const [dataVersion, setDataVersion] = useState(0);
   const debounceRef = useRef(null);
   const lastRequestKeyRef = useRef("");
+  const requestIdRef = useRef(0);
   const mapRef = useRef(null);
 
   const fetchLayerData = useCallback(async (map, currentWeights) => {
@@ -61,6 +69,8 @@ export function useMapData(weights, selectedCounty) {
     }
 
     lastRequestKeyRef.current = requestKey;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setLoading(true);
 
     try {
@@ -82,17 +92,24 @@ export function useMapData(weights, selectedCounty) {
         usedLayer = "coarse";
       }
 
+      if (requestId !== requestIdRef.current) return;
+
       setGeoData(data);
       setFeatureCount(data?.features?.length || 0);
       setCurrentLayer(usedLayer);
       setTop3(data?.features?.length ? buildTopThree(data.features) : []);
+      setDataVersion((version) => version + 1);
     } catch (error) {
+      if (requestId !== requestIdRef.current) return;
       console.error("Fetch klaida:", error);
       setGeoData(null);
       setFeatureCount(0);
       setTop3([]);
+      setDataVersion((version) => version + 1);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [selectedCounty]);
 
@@ -104,7 +121,7 @@ export function useMapData(weights, selectedCounty) {
 
     debounceRef.current = setTimeout(() => {
       fetchLayerData(map, weights);
-    }, 250);
+    }, 450);
   }, [fetchLayerData, weights]);
 
   const handleMouseMove = useCallback((latlng) => {
@@ -122,7 +139,7 @@ export function useMapData(weights, selectedCounty) {
 
     debounceRef.current = setTimeout(() => {
       fetchLayerData(mapRef.current, weights);
-    }, 300);
+    }, 450);
   }, [weights, fetchLayerData]);
 
   useEffect(() => {
@@ -141,6 +158,7 @@ export function useMapData(weights, selectedCounty) {
   return {
     coords,
     currentLayer,
+    dataVersion,
     featureCount,
     geoData,
     handleMouseMove,

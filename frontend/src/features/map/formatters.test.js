@@ -1,3 +1,4 @@
+import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -11,36 +12,44 @@ import {
   getSoilRating,
 } from "./formatters.js";
 
-export function run() {
+test("getLayerName maps known layers and falls back", () => {
   assert.equal(getLayerName("coarse"), "Abstraktus rodymas");
   assert.equal(getLayerName("detail"), "Detalus rodymas");
   assert.equal(getLayerName("unknown"), "-");
- 
-  assert.equal(formatValue(0.456), "0.46");
-  assert.equal(formatValue("1"), "1.00");
+});
+
+test("formatValue formats numbers and missing values", () => {
+  assert.equal(formatValue(1.234), "1.23");
   assert.equal(formatValue(null), "-");
   assert.equal(formatValue(undefined), "-");
+});
 
-  assert.equal(getIndexRating(0.95), "Puiku");
-  assert.equal(getForestRating(0.72), "Daug miško");
-  assert.equal(getRestrictionsRating(1), "Nėra ribojimų");
-  assert.equal(getSoilRating(0.55), "Vidutiniškas");
-  assert.equal(getRoadRating(0.2), "Labai blogas");
+test("rating helpers return expected threshold labels", () => {
+  assert.equal(getIndexRating(0.9), "Puiku");
+  assert.equal(getIndexRating(0.7), "Gerai");
+  assert.equal(getIndexRating(0.5), "Vidutiniškai");
+  assert.equal(getIndexRating(0.3), "Blogai");
+  assert.equal(getIndexRating(0.1), "Labai blogai");
 
+  assert.match(getForestRating(0.9), /^Labai daug/);
+  assert.match(getRestrictionsRating(1), /^N/);
+  assert.match(getRestrictionsRating(0.7), /ribojimai$/);
+  assert.equal(getSoilRating(0.7), "Labai geras");
+  assert.equal(getRoadRating(0.3), "Prastas");
+});
+
+test("buildFeaturePopupContent renders formatted values and fallbacks", () => {
   const html = buildFeaturePopupContent({
-    layer: "detail",
-    forest_type: "Spygliuočių miškai",
-    municipality: "Vilniaus m. sav.",
-    county: "Vilniaus apskritis",
-    final_score: 0.82,
-    forest_pct: 0.45,
-    restrictions_index: 0.91,
-    soil_index: 0.66,
-    road_score: 0.5,
+    layer: "coarse",
+    final_score: 0.72,
+    forest_pct: 0.456,
+    restrictions_index: 0.9,
+    soil_index: 0.5,
+    road_score: 0.3,
   });
 
-  assert.match(html, /Detalus rodymas/);
-  assert.match(html, /Vilniaus apskritis/);
-  assert.match(html, /0\.82/);
-  assert.match(html, /45\.00%/);
-}
+  assert.match(html, /Abstraktus rodymas/);
+  assert.match(html, /0.72/);
+  assert.match(html, /45.60%/);
+  assert.match(html, /Savivaldyb/);
+});

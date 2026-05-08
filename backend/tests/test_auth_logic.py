@@ -114,30 +114,36 @@ class AuthServiceTests(unittest.TestCase):
         mocked_build.assert_called_once_with(user)
         self.assertEqual(result, {"access_token": "abc"})
 
-    def test_create_password_reset_token_returns_dummy_for_missing_user(self):
+    def test_create_password_reset_token_rejects_unknown_email(self):
         db = FakeDB()
         request = ForgotPasswordRequest(username="missing@example.com")
 
         with patch.object(auth_service, "get_user_by_login", return_value=None):
-            response = auth_service.create_password_reset_token(db, request)
+            with self.assertRaises(HTTPException) as ctx:
+                auth_service.create_password_reset_token(db, request)
 
-        self.assertEqual(response.token, "user_not_found_dummy_token")
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertEqual(ctx.exception.detail, "El. paštas nerastas duomenų bazėje")
         self.assertEqual(db.commits, 0)
 
     def test_create_password_reset_token_updates_user_and_commits(self):
-        user = SimpleNamespace(reset_token=None, reset_token_expires=None)
+        user = SimpleNamespace(email="matas@example.com", reset_token=None, reset_token_expires=None)
         db = FakeDB()
 
         with patch.object(auth_service, "get_user_by_login", return_value=user), patch.object(
             auth_service, "assign_password_reset_token", return_value="reset-token"
-        ) as mocked_assign:
+        ) as mocked_assign, patch.object(auth_service, "send_password_reset_email") as mocked_send:
             response = auth_service.create_password_reset_token(
                 db,
                 ForgotPasswordRequest(username="matas@example.com"),
             )
 
         mocked_assign.assert_called_once_with(user)
-        self.assertEqual(response.token, "reset-token")
+        mocked_send.assert_called_once_with(
+            "matas@example.com",
+            "https://forestforyou.eu/#/reset-password-confirm?token=reset-token",
+        )
+        self.assertEqual(response.token, "email_sent")
         self.assertEqual(db.commits, 1)
 
     def test_reset_user_password_clears_reset_state(self):

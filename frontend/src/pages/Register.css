@@ -133,3 +133,15 @@
     /* center texts and buttons */
     margin-top: 16px;
 }
+
+.password-hint {
+    color: #607568;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.primary-btn:disabled {
+    opacity: 0.68;
+    cursor: not-allowed;
+    transform: none;
+}

@@ -1,25 +1,38 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import PageTopbar from "../components/PageTopbar";
+import { useLanguage } from "../context/LanguageContext";
 import { getAuthErrorMessage, requestPasswordReset } from "../services/authApi";
 import "./ResetPassword.css";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function ResetPassword() {
-  const navigate = useNavigate();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setMessage("");
+    setError("");
+
+    if (!EMAIL_PATTERN.test(email.trim())) {
+      setError(t("invalidEmail"));
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
-      const data = await requestPasswordReset(email);
-      const resetLink = `${window.location.origin}/reset-password-confirm?token=${data.token}`;
-
-      window.open(resetLink, "_blank");
-      alert("Slaptažodžio atkūrimo nuoroda atidaryta naujame skirtuke!");
-      navigate("/login");
-    } catch (error) {
-      alert(getAuthErrorMessage(error, "Įvyko klaida"));
+      await requestPasswordReset(email.trim());
+      setMessage("Slaptažodžio atkūrimo nuoroda išsiųsta el. paštu.");
+    } catch (requestError) {
+      setError(getAuthErrorMessage(requestError, t("genericError")));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -29,23 +42,27 @@ export default function ResetPassword() {
 
       <div className="reset-content">
         <div className="reset-card">
-          <h1>Slaptažodžio atstatymas</h1>
+          <h1>Slaptažodžio atkūrimas</h1>
           <p>Įveskite el. paštą, kad atsiųstume atkūrimo nuorodą.</p>
 
-          <form className="reset-form" onSubmit={handleSubmit}>
+          <form className="reset-form" onSubmit={handleSubmit} noValidate>
             <label className="reset-label">
-              El. paštas
+              {t("email")}
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 required
-                placeholder="ivestas@email.com"
+                pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
+                placeholder="vardas@example.com"
               />
             </label>
 
-            <button type="submit" className="primary-btn" style={{ width: "100%" }}>
-              Siųsti nuorodą
+            {error && <div className="form-message error">{error}</div>}
+            {message && <div className="form-message success">{message}</div>}
+
+            <button type="submit" className="primary-btn" style={{ width: "100%" }} disabled={submitting}>
+              {submitting ? t("processing") : "Siųsti nuorodą"}
             </button>
           </form>
 

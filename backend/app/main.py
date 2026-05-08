@@ -1,8 +1,25 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+import stripe
+import os
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
+import asyncio
 
 from .api.routes import router
-from .database import init_db
+from .database import init_db, get_db, User, PurchasedPlan
+from .auth import verify_password, get_password_hash, create_access_token, create_random_token
+
+load_dotenv()
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 app = FastAPI()
 
@@ -17,7 +34,197 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    asyncio.create_task(clean_expired_plans_periodically())
 
+async def clean_expired_plans_periodically():
+    while True:
+        await asyncio.sleep(3600)
+        db = next(get_db())
+        try:
+            now = datetime.now()
+            expired_plans = db.query(PurchasedPlan).filter(
+                PurchasedPlan.expires_at < now,
+                PurchasedPlan.is_active == True
+            ).all()
+            
+            for plan in expired_plans:
+                plan.is_active = False
+            
+            if expired_plans:
+                db.commit()
+        except Exception as e:
+            print(f"Error cleaning expired plans: {e}")
+        finally:
+            db.close()
+
+security = HTTPBearer()
+
+def get_current_user(token: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Neteisingas prisijungimo tokenas.")
+        user = db.query(User).filter(User.username == username).first()
+        if user is None:
+            raise HTTPException(status_code=401, detail="Naudotojas nerastas.")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Neteisingas prisijungimo tokenas.")
+
+class PaymentIntentRequest(BaseModel):
+    amount: int
+    currency: str = "eur"
+
+class PurchaseRequest(BaseModel):
+    plan_id: str
+    transaction_id: str
+
+@app.post("/api/create-payment-intent")
+async def create_payment_intent(payment: PaymentIntentRequest):
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=payment.amount,
+            currency=payment.currency,
+            payment_method_types=["card"],
+        )
+        return {
+            "clientSecret": intent.client_secret,
+            "paymentIntentId": intent.id
+        }
+    except Exception:
+        raise HTTPException(status_code=400, detail="Mokėjimo inicijuoti nepavyko.")
+
+@app.get("/api/payment-status/{payment_intent_id}")
+async def get_payment_status(payment_intent_id: str):
+    try:
+        intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+        return {
+            "status": intent.status,
+            "amount": intent.amount,
+            "currency": intent.currency
+        }
+    except Exception:
+        raise HTTPException(status_code=400, detail="Mokėjimo būsenos patikrinti nepavyko.")
+
+@app.post("/api/record-purchase")
+async def record_purchase(
+    purchase: PurchaseRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    existing_plans = db.query(PurchasedPlan).filter(
+        PurchasedPlan.user_id == current_user.id,
+        PurchasedPlan.is_active == True
+    ).all()
+
+    active_other_plan = next(
+        (plan for plan in existing_plans if plan.plan_id != purchase.plan_id),
+        None,
+    )
+
+    if active_other_plan:
+        raise HTTPException(
+            status_code=409,
+            detail="Prieš įsigydami kitą planą, atšaukite dabartinį planą.",
+        )
+    
+    existing = db.query(PurchasedPlan).filter(
+        PurchasedPlan.user_id == current_user.id,
+        PurchasedPlan.plan_id == purchase.plan_id
+    ).first()
+    
+    now = datetime.now()
+    
+    if purchase.plan_id == "lithuania_month":
+        expires_at = now + timedelta(days=30)
+    elif purchase.plan_id in ["lithuania_day", "county_day"]:
+        expires_at = now + timedelta(hours=24)
+    else:
+        expires_at = None
+    
+    if existing:
+        existing.is_active = True
+        existing.transaction_id = purchase.transaction_id
+        existing.purchased_at = now
+        existing.expires_at = expires_at
+        db.commit()
+        return {"success": True}
+    
+    purchased_plan = PurchasedPlan(
+        user_id=current_user.id,
+        plan_id=purchase.plan_id,
+        transaction_id=purchase.transaction_id,
+        expires_at=expires_at,
+        is_active=True
+    )
+    
+    db.add(purchased_plan)
+    db.commit()
+    
+    return {"success": True}
+
+
+@app.post("/api/cancel-active-plan")
+async def cancel_active_plan(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    active_plans = db.query(PurchasedPlan).filter(
+        PurchasedPlan.user_id == current_user.id,
+        PurchasedPlan.is_active == True
+    ).all()
+
+    for plan in active_plans:
+        plan.is_active = False
+
+    db.commit()
+    return {"success": True}
+
+@app.get("/api/user-plans")
+async def get_user_plans(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    purchases = db.query(PurchasedPlan).filter(
+        PurchasedPlan.user_id == current_user.id,
+        PurchasedPlan.is_active == True
+    ).all()
+    
+    now = datetime.now()
+    active_plans = []
+    
+    for purchase in purchases:
+        if purchase.expires_at and purchase.expires_at < now:
+            purchase.is_active = False
+            db.commit()
+            continue
+        active_plans.append(purchase.plan_id)
+    
+    return {"purchased_plans": active_plans, "active_plan": active_plans[0] if active_plans else None}
+
+@app.get("/api/has-active-plan")
+async def has_active_plan(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    purchases = db.query(PurchasedPlan).filter(
+        PurchasedPlan.user_id == current_user.id,
+        PurchasedPlan.is_active == True
+    ).all()
+    
+    now = datetime.now()
+    has_active = False
+    
+    for purchase in purchases:
+        if purchase.expires_at and purchase.expires_at < now:
+            purchase.is_active = False
+            db.commit()
+            continue
+        has_active = True
+        break
+    
+    return {"has_active_plan": has_active}
 
 app.include_router(router)
 

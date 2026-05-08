@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node src/test-runner.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node run-tests.mjs"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^6.2.0",
+    "@stripe/stripe-js": "^9.2.0",
     "axios": "^1.14.0",
     "leaflet": "^1.9.4",
     "proj4": "^2.20.4",
