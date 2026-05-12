@@ -36,11 +36,11 @@ class RoutesLogicTests(unittest.TestCase):
         mocked_reset.assert_called_once_with("db", "request")
 
     def test_simple_public_endpoints(self):
-        user = SimpleNamespace(full_name="Matas")
+        user = SimpleNamespace(first_name="Matas", last_name="Jonaitis")
 
         self.assertEqual(
             asyncio.run(routes.protected_route(user)),
-            {"message": "Hello Matas, you are authenticated!"},
+            {"message": "Hello Matas Jonaitis, you are authenticated!"},
         )
         self.assertEqual(asyncio.run(routes.health_check()), {"status": "healthy", "database": "postgresql"})
 

@@ -38,11 +38,17 @@ class FakeDB:
 
 class AuthServiceMoreTests(unittest.TestCase):
     def test_build_authenticated_user_payload(self):
-        user = SimpleNamespace(id=1, email="a@example.com", full_name="A")
+        user = SimpleNamespace(id=1, email="a@example.com", first_name="A", last_name="B")
 
         self.assertEqual(
             auth_service.build_authenticated_user_payload(user),
-            {"id": 1, "email": "a@example.com", "name": "A"},
+            {
+                "id": 1,
+                "email": "a@example.com",
+                "name": "A B",
+                "first_name": "A",
+                "last_name": "B",
+            },
         )
 
     def test_assign_password_reset_token_sets_token_and_future_expiry(self):
@@ -81,10 +87,15 @@ class AuthServiceMoreTests(unittest.TestCase):
             auth_service.get_current_user_from_token(FakeDB(result=None), token)
 
         self.assertEqual(ctx.exception.status_code, 401)
-        self.assertEqual(ctx.exception.detail, "User not found")
+        self.assertEqual(ctx.exception.detail, "Naudotojas nerastas.")
 
     def test_register_user_rejects_duplicate_email(self):
-        request = RegisterRequest(name="A", email="a@example.com", password="secret")
+        request = RegisterRequest(
+            first_name="A",
+            last_name="B",
+            email="a@example.com",
+            password="Secret1!",
+        )
 
         with patch.object(auth_service, "get_user_by_email", return_value=SimpleNamespace()):
             with self.assertRaises(HTTPException) as ctx:
@@ -93,7 +104,12 @@ class AuthServiceMoreTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status_code, 400)
 
     def test_register_user_creates_and_persists_user(self):
-        request = RegisterRequest(name="A", email="a@example.com", password="secret")
+        request = RegisterRequest(
+            first_name="A",
+            last_name="B",
+            email="a@example.com",
+            password="Secret1!",
+        )
         db = FakeDB()
 
         with patch.object(auth_service, "get_user_by_email", return_value=None), patch.object(
@@ -103,9 +119,14 @@ class AuthServiceMoreTests(unittest.TestCase):
         ):
             response = auth_service.register_user(db, request)
 
-        self.assertEqual(response, {"message": "User created successfully", "user_id": 42})
+        self.assertEqual(
+            response,
+            {"message": "Paskyra sukurta sÄ—kmingai. Dabar galite prisijungti.", "user_id": 42},
+        )
         self.assertEqual(db.commits, 1)
         self.assertEqual(db.added[0].email, "a@example.com")
+        self.assertEqual(db.added[0].first_name, "A")
+        self.assertEqual(db.added[0].last_name, "B")
         self.assertEqual(db.added[0].hashed_password, "hashed")
 
     def test_login_user_rejects_missing_or_bad_password(self):
@@ -123,10 +144,13 @@ class AuthServiceMoreTests(unittest.TestCase):
 
     def test_reset_user_password_rejects_invalid_token(self):
         with self.assertRaises(HTTPException) as ctx:
-            auth_service.reset_user_password(FakeDB(result=None), ResetPasswordRequest(token="bad", new_password="x"))
+            auth_service.reset_user_password(
+                FakeDB(result=None),
+                ResetPasswordRequest(token="bad", new_password="x"),
+            )
 
         self.assertEqual(ctx.exception.status_code, 400)
-        self.assertEqual(ctx.exception.detail, "Invalid or expired token")
+        self.assertEqual(ctx.exception.detail, "Nuoroda nebegalioja arba yra neteisinga.")
 
 
 if __name__ == "__main__":

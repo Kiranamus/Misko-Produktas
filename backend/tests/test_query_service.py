@@ -74,6 +74,33 @@ class QueryServiceTests(unittest.TestCase):
         self.assertEqual(feature["properties"]["weights"]["soil"], 0.3)
         self.assertEqual(feature["geometry"]["type"], "Point")
 
+    def test_serialize_grid_feature_fills_missing_county_from_municipality(self):
+        row = SimpleNamespace(
+            _mapping={
+                "id": 12,
+                "layer": "detail",
+                "forest_pct": 0.5,
+                "tex_score": 55,
+                "dra_score": 55,
+                "ph_score": 55,
+                "reljef_score": 55,
+                "akmen_score": 55,
+                "soil_index_raw": 55,
+                "restrictions_index": 0.8,
+                "soil_index": 0.6,
+                "road_score": 0.5,
+                "forest_type": "Lapuočių miškai",
+                "municipality": "Raseinių r. sav.",
+                "county": None,
+                "final_score": 0.72,
+                "geom_json": "{\"type\": \"Point\", \"coordinates\": [23.1, 55.4]}",
+            }
+        )
+
+        feature = query_service.serialize_grid_feature(row, 0.4, 0.3, 0.3)
+
+        self.assertEqual(feature["properties"]["county"], "Kauno apskritis")
+
     def test_summarize_scores_counts_buckets(self):
         features = [
             {"properties": {"final_score": 0.9}},

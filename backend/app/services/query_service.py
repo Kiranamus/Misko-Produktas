@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.db_config import engine
 from app.config import LT_BOUNDARY_WKT
+from app.services.admin_areas import county_for_municipality, normalize_municipality_name
 from app.utils.geo import parse_bbox_string
 
 
@@ -147,6 +148,8 @@ def build_grid_query(where_parts: list[str], limit: Optional[int]) -> str:
 def serialize_grid_feature(row, w_restr: float, w_soil: float, w_road: float) -> dict:
     mapping = row._mapping
     score = 0.0 if mapping["final_score"] is None else float(mapping["final_score"])
+    municipality = normalize_municipality_name(mapping["municipality"])
+    county = mapping["county"] or county_for_municipality(municipality)
 
     return {
         "type": "Feature",
@@ -164,8 +167,8 @@ def serialize_grid_feature(row, w_restr: float, w_soil: float, w_road: float) ->
             "soil_index": 0.0 if mapping["soil_index"] is None else float(mapping["soil_index"]),
             "road_score": 0.0 if mapping["road_score"] is None else float(mapping["road_score"]),
             "forest_type": mapping["forest_type"],
-            "municipality": mapping["municipality"],
-            "county": mapping["county"],
+            "municipality": municipality,
+            "county": county,
             "final_score": score,
             "class": classify(score),
             "weights": {

@@ -159,6 +159,19 @@ class PipelineMoreTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "municipality"], "Vilniaus m. sav.")
         self.assertEqual(result.loc[0, "county"], "Vilniaus apskritis")
 
+    def test_assign_admin_areas_maps_raseiniai_to_kaunas_county(self):
+        grid = gpd.GeoDataFrame(geometry=[box(0, 0, 10, 10)], crs=pipeline.CRS_METRIC)
+        admin = gpd.GeoDataFrame(
+            {"Savivaldybe": ["Raseinių r. sav."]},
+            geometry=[box(0, 0, 10, 10)],
+            crs=pipeline.CRS_METRIC,
+        )
+
+        result = pipeline.assign_admin_areas(grid, admin)
+
+        self.assertEqual(result.loc[0, "municipality"], "Raseinių r. sav.")
+        self.assertEqual(result.loc[0, "county"], "Kauno apskritis")
+
     def test_assign_dominant_forest_type_uses_largest_intersection(self):
         grid = gpd.GeoDataFrame(geometry=[box(0, 0, 10, 10)], crs=pipeline.CRS_METRIC)
         clc = gpd.GeoDataFrame(

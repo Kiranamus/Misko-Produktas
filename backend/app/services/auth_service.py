@@ -31,13 +31,20 @@ PASSWORD_RULES_MESSAGE = (
     "Slaptažodis turi būti bent 8 simbolių, turėti bent vieną didžiąją raidę, "
     "bent vieną skaičių ir bent vieną specialų simbolį."
 )
+NAME_RULES_MESSAGE = "Įveskite vardą ir pavardę."
 
 
 def build_authenticated_user_payload(user: User) -> dict:
+    display_name = " ".join(
+        part for part in [user.first_name, user.last_name] if part
+    ).strip()
+
     return {
         "id": user.id,
         "email": user.email,
-        "name": user.full_name,
+        "name": display_name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
     }
 
 
@@ -109,8 +116,27 @@ def build_frontend_url(frontend_url: str) -> str:
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
 
 
+def normalize_registration_name(user_data: RegisterRequest) -> tuple[str, str]:
+    first_name = (user_data.first_name or "").strip()
+    last_name = (user_data.last_name or "").strip()
+
+    if (not first_name or not last_name) and user_data.name:
+        name_parts = user_data.name.strip().split()
+        first_name = first_name or (name_parts[0] if name_parts else "")
+        last_name = last_name or (" ".join(name_parts[1:]) if len(name_parts) > 1 else "")
+
+    if not first_name or not last_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=NAME_RULES_MESSAGE,
+        )
+
+    return first_name, last_name
+
+
 def register_user(db: Session, user_data: RegisterRequest) -> dict:
     validate_password_strength(user_data.password)
+    first_name, last_name = normalize_registration_name(user_data)
 
     existing_user = get_user_by_email(db, user_data.email)
     if existing_user:
@@ -122,7 +148,8 @@ def register_user(db: Session, user_data: RegisterRequest) -> dict:
     db_user = User(
         username=user_data.email,
         email=user_data.email,
-        full_name=user_data.name,
+        first_name=first_name,
+        last_name=last_name,
         hashed_password=get_password_hash(user_data.password),
         email_verified=True,
     )

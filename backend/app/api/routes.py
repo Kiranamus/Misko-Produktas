@@ -79,7 +79,10 @@ async def reset_password(request: ResetPasswordRequest, db: Session = Depends(ge
 
 @router.get("/protected")
 async def protected_route(current_user: User = Depends(get_current_user)):
-    return {"message": f"Hello {current_user.full_name}, you are authenticated!"}
+    display_name = " ".join(
+        part for part in [current_user.first_name, current_user.last_name] if part
+    ).strip()
+    return {"message": f"Hello {display_name}, you are authenticated!"}
 
 
 @router.get("/health")

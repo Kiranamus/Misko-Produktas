@@ -1,8 +1,8 @@
 .login-page {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    overflow: auto;
     background:
         radial-gradient(circle at top left, rgba(61, 122, 88, 0.10), transparent 34%),
         radial-gradient(circle at bottom right, rgba(129, 170, 143, 0.12), transparent 30%),
@@ -14,14 +14,14 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 0 20px;
+    padding: clamp(16px, 3dvh, 28px) clamp(14px, 2vw, 20px);
     box-sizing: border-box;
 }
 
 .login-card {
     width: 100%;
-    max-width: 460px;
-    padding: 26px;
+    max-width: min(460px, 100%);
+    padding: clamp(20px, 2.2vw, 26px);
     background: rgba(255, 255, 255, 0.95);
     border-radius: 16px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
@@ -33,7 +33,7 @@
 
 .login-card h1 {
     margin: 0 0 10px 0;
-    font-size: 34px;
+    font-size: clamp(28px, 2.4vw, 34px);
     font-weight: 800;
     color: #15382a;
 }

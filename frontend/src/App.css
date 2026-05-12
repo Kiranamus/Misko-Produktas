@@ -34,7 +34,7 @@ a {
 }
 
 .topbar-inner {
-  padding: 16px 24px;
+  padding: clamp(10px, 1.3vw, 16px) clamp(14px, 2vw, 24px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -46,7 +46,7 @@ a {
   align-items: center;
   gap: 10px;
   color: inherit;
-  padding: 8px 16px 8px 10px;
+  padding: clamp(6px, 0.8vw, 8px) clamp(12px, 1.2vw, 16px) clamp(6px, 0.8vw, 8px) clamp(8px, 1vw, 10px);
   border: 2px solid rgba(13, 56, 40, 0.28);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.64);
@@ -54,8 +54,8 @@ a {
 }
 
 .brand-tree-icon {
-  width: 34px;
-  height: 38px;
+  width: clamp(28px, 2.4vw, 34px);
+  height: clamp(32px, 2.7vw, 38px);
   flex: 0 0 auto;
   fill: #0d3828;
   stroke: #0d3828;
@@ -71,7 +71,7 @@ a {
 }
 
 .brand-title {
-  font-size: 23px;
+  font-size: clamp(19px, 1.7vw, 23px);
   font-weight: 800;
   letter-spacing: 0;
 }
@@ -91,10 +91,10 @@ a {
 }
 
 .nav-link {
-  padding: 10px 16px;
+  padding: clamp(8px, 0.9vw, 10px) clamp(12px, 1.2vw, 16px);
   border-radius: 999px;
   color: #355d46;
-  font-size: 14px;
+  font-size: clamp(13px, 0.95vw, 14px);
   font-weight: 700;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }

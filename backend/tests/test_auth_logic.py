@@ -69,7 +69,8 @@ class AuthServiceTests(unittest.TestCase):
             id=7,
             username="matas@example.com",
             email="matas@example.com",
-            full_name="Matas",
+            first_name="Matas",
+            last_name="Jonaitis",
         )
 
         with patch.object(auth_service, "create_access_token", return_value="jwt-token") as mocked_token:
@@ -81,7 +82,13 @@ class AuthServiceTests(unittest.TestCase):
             {
                 "access_token": "jwt-token",
                 "token_type": "bearer",
-                "user": {"id": 7, "email": "matas@example.com", "name": "Matas"},
+                "user": {
+                    "id": 7,
+                    "email": "matas@example.com",
+                    "name": "Matas Jonaitis",
+                    "first_name": "Matas",
+                    "last_name": "Jonaitis",
+                },
             },
         )
 
@@ -90,14 +97,15 @@ class AuthServiceTests(unittest.TestCase):
             auth_service.decode_username_from_token("blogas-token")
 
         self.assertEqual(ctx.exception.status_code, 401)
-        self.assertEqual(ctx.exception.detail, "Invalid token")
+        self.assertEqual(ctx.exception.detail, "Neteisingas prisijungimo tokenas.")
 
     def test_login_user_returns_bearer_payload(self):
         user = SimpleNamespace(
             id=5,
             username="matas@example.com",
             email="matas@example.com",
-            full_name="Matas",
+            first_name="Matas",
+            last_name="Jonaitis",
             hashed_password="hashed",
         )
         request = LoginRequest(username="matas@example.com", password="sekretas")
@@ -123,7 +131,7 @@ class AuthServiceTests(unittest.TestCase):
                 auth_service.create_password_reset_token(db, request)
 
         self.assertEqual(ctx.exception.status_code, 400)
-        self.assertEqual(ctx.exception.detail, "El. paštas nerastas duomenų bazėje")
+        self.assertEqual(ctx.exception.detail, "El. paÅ¡tas nerastas duomenÅ³ bazÄ—je.")
         self.assertEqual(db.commits, 0)
 
     def test_create_password_reset_token_updates_user_and_commits(self):
@@ -162,7 +170,7 @@ class AuthServiceTests(unittest.TestCase):
 
         mocked_clear.assert_called_once_with(user, "naujas")
         self.assertEqual(db.commits, 1)
-        self.assertEqual(response, {"message": "Password reset successfully"})
+        self.assertEqual(response, {"message": "SlaptaÅ¾odis pakeistas sÄ—kmingai."})
 
 
 if __name__ == "__main__":

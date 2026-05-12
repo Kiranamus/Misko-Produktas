@@ -11,7 +11,8 @@ const PASSWORD_PATTERN = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 export default function Register() {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,8 +21,12 @@ export default function Register() {
   const [submitting, setSubmitting] = useState(false);
 
   const validateForm = () => {
-    if (!name.trim()) {
-      return t("nameRequired");
+    if (!firstName.trim()) {
+      return t("firstNameRequired");
+    }
+
+    if (!lastName.trim()) {
+      return t("lastNameRequired");
     }
 
     if (!EMAIL_PATTERN.test(email.trim())) {
@@ -53,13 +58,19 @@ export default function Register() {
     setSubmitting(true);
 
     try {
-      const response = await registerUser({ name, email: email.trim(), password });
+      const response = await registerUser({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        email: email.trim(),
+        password,
+      });
       setFormSuccess(
         response.message
           ? getAuthErrorMessage({ response: { data: { detail: response.message } } }, t("accountCreated"), t)
           : t("accountCreated")
       );
-      setName("");
+      setFirstName("");
+      setLastName("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
@@ -82,13 +93,24 @@ export default function Register() {
 
           <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <label className="auth-label">
-              {t("name")}
+              {t("firstName")}
               <input
                 type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
                 required
-                placeholder={t("name")}
+                placeholder={t("firstName")}
+              />
+            </label>
+
+            <label className="auth-label">
+              {t("lastName")}
+              <input
+                type="text"
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                required
+                placeholder={t("lastName")}
               />
             </label>
 
