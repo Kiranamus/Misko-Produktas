@@ -49,7 +49,7 @@ export default function Login() {
       setFormSuccess(t("loginSuccess"));
       navigate("/");
     } catch (error) {
-      setFormError(getAuthErrorMessage(error, t("genericError")));
+      setFormError(getAuthErrorMessage(error, t("genericError"), t));
     } finally {
       setSubmitting(false);
     }

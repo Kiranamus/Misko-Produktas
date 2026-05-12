@@ -28,9 +28,9 @@ export default function ResetPassword() {
 
     try {
       await requestPasswordReset(email.trim());
-      setMessage("Slaptažodžio atkūrimo nuoroda išsiųsta el. paštu.");
+      setMessage(t("resetPasswordSent"));
     } catch (requestError) {
-      setError(getAuthErrorMessage(requestError, t("genericError")));
+      setError(getAuthErrorMessage(requestError, t("genericError"), t));
     } finally {
       setSubmitting(false);
     }
@@ -42,8 +42,8 @@ export default function ResetPassword() {
 
       <div className="reset-content">
         <div className="reset-card">
-          <h1>Slaptažodžio atkūrimas</h1>
-          <p>Įveskite el. paštą, kad atsiųstume atkūrimo nuorodą.</p>
+          <h1>{t("resetPasswordTitle")}</h1>
+          <p>{t("resetPasswordIntro")}</p>
 
           <form className="reset-form" onSubmit={handleSubmit} noValidate>
             <label className="reset-label">
@@ -62,13 +62,13 @@ export default function ResetPassword() {
             {message && <div className="form-message success">{message}</div>}
 
             <button type="submit" className="primary-btn" style={{ width: "100%" }} disabled={submitting}>
-              {submitting ? t("processing") : "Siųsti nuorodą"}
+              {submitting ? t("processing") : t("sendResetLink")}
             </button>
           </form>
 
           <div className="reset-actions">
             <NavLink to="/login" className="secondary-btn" style={{ width: "100%" }}>
-              Grįžti prisijungti
+              {t("backToLogin")}
             </NavLink>
           </div>
         </div>

@@ -95,7 +95,7 @@ function CheckoutForm({ amount, onSuccess, onError }) {
 }
 
 export default function StripePayment({ amount, onSuccess, onError }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   if (!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) {
     return (
@@ -106,7 +106,11 @@ export default function StripePayment({ amount, onSuccess, onError }) {
   }
 
   return (
-    <Elements stripe={stripePromise}>
+    <Elements
+      key={language}
+      stripe={stripePromise}
+      options={{ locale: language === "en" ? "en" : "lt" }}
+    >
       <CheckoutForm amount={amount} onSuccess={onSuccess} onError={onError} />
     </Elements>
   );

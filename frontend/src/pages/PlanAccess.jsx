@@ -4,6 +4,7 @@ import PageTopbar from "../components/PageTopbar";
 import StripePayment from "../components/StripePayment";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { translatePlaceName } from "../features/map/formatters";
 import "./PlanAccess.css";
 
 const API_BASE = "http://localhost:8000";
@@ -32,7 +33,7 @@ const PLAN_CONTENT = {
 export default function PlanAccess() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [counties, setCounties] = useState([]);
   const [loadingCounties, setLoadingCounties] = useState(true);
   const [selectedCounty, setSelectedCounty] = useState("");
@@ -164,7 +165,7 @@ export default function PlanAccess() {
                   >
                     {counties.map((county) => (
                       <option key={county} value={county}>
-                        {county}
+                        {translatePlaceName(county, language, "county")}
                       </option>
                     ))}
                   </select>

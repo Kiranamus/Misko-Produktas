@@ -28,7 +28,7 @@ export default function ResetPasswordConfirm() {
     setMessage("");
 
     if (!token) {
-      setError("Neteisingas arba pasenęs atkūrimo kodas.");
+      setError(t("resetTokenInvalid"));
       return;
     }
 
@@ -46,10 +46,10 @@ export default function ResetPasswordConfirm() {
 
     try {
       await resetPassword({ token, new_password: newPassword });
-      setMessage("Slaptažodis sėkmingai pakeistas. Galite prisijungti.");
+      setMessage(t("passwordChanged"));
       window.setTimeout(() => navigate("/login"), 900);
     } catch (requestError) {
-      setError(getAuthErrorMessage(requestError, "Įvyko klaida. Kodas gali būti pasenęs."));
+      setError(getAuthErrorMessage(requestError, t("expiredCodeGeneric"), t));
     } finally {
       setSubmitting(false);
     }
@@ -61,10 +61,10 @@ export default function ResetPasswordConfirm() {
         <PageTopbar />
         <div className="reset-content">
           <div className="reset-card">
-            <h1>Klaida</h1>
-            <p>Neteisingas arba pasenęs slaptažodžio atkūrimo kodas.</p>
+            <h1>{t("errorTitle")}</h1>
+            <p>{t("resetTokenInvalidLong")}</p>
             <NavLink to="/reset-password" className="primary-btn">
-              Bandyti dar kartą
+              {t("tryAgain")}
             </NavLink>
           </div>
         </div>
@@ -78,12 +78,12 @@ export default function ResetPasswordConfirm() {
 
       <div className="reset-content">
         <div className="reset-card">
-          <h1>Naujo slaptažodžio nustatymas</h1>
-          <p>Įveskite naują slaptažodį.</p>
+          <h1>{t("newPasswordTitle")}</h1>
+          <p>{t("newPasswordIntro")}</p>
 
           <form className="reset-form" onSubmit={handleSubmit} noValidate>
             <label className="reset-label">
-              Naujas slaptažodis
+              {t("newPassword")}
               <input
                 type="password"
                 value={newPassword}
@@ -91,18 +91,18 @@ export default function ResetPasswordConfirm() {
                 required
                 minLength={8}
                 pattern="^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$"
-                placeholder="Naujas slaptažodis"
+                placeholder={t("newPassword")}
               />
             </label>
 
             <label className="reset-label">
-              Pakartokite naują slaptažodį
+              {t("repeatNewPassword")}
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
-                placeholder="Pakartokite slaptažodį"
+                placeholder={t("repeatPassword")}
               />
             </label>
 
@@ -111,7 +111,7 @@ export default function ResetPasswordConfirm() {
             {message && <div className="form-message success">{message}</div>}
 
             <button type="submit" className="primary-btn" style={{ width: "100%" }} disabled={submitting}>
-              {submitting ? t("processing") : "Keisti slaptažodį"}
+              {submitting ? t("processing") : t("changePassword")}
             </button>
           </form>
         </div>

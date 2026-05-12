@@ -20,6 +20,10 @@ export default function Register() {
   const [submitting, setSubmitting] = useState(false);
 
   const validateForm = () => {
+    if (!name.trim()) {
+      return t("nameRequired");
+    }
+
     if (!EMAIL_PATTERN.test(email.trim())) {
       return t("invalidEmail");
     }
@@ -50,14 +54,18 @@ export default function Register() {
 
     try {
       const response = await registerUser({ name, email: email.trim(), password });
-      setFormSuccess(response.message || "Paskyra sukurta sėkmingai.");
+      setFormSuccess(
+        response.message
+          ? getAuthErrorMessage({ response: { data: { detail: response.message } } }, t("accountCreated"), t)
+          : t("accountCreated")
+      );
       setName("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
       window.setTimeout(() => navigate("/login"), 800);
     } catch (error) {
-      setFormError(getAuthErrorMessage(error, t("genericError")));
+      setFormError(getAuthErrorMessage(error, t("genericError"), t));
     } finally {
       setSubmitting(false);
     }

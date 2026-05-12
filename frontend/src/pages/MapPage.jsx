@@ -5,7 +5,12 @@ import "leaflet/dist/leaflet.css";
 import PageTopbar from "../components/PageTopbar";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
-import { buildFeaturePopupContent, getLayerName } from "../features/map/formatters";
+import {
+  getFeaturePopupRows,
+  getLayerName,
+  translateForestType,
+  translatePlaceName,
+} from "../features/map/formatters";
 import { LITHUANIA_BOUNDARY_GEOJSON, LITHUANIA_MASK_RINGS } from "../features/map/lithuaniaBoundary";
 import { useMapData } from "../features/map/useMapData";
 import "./MapPage.css";
@@ -39,6 +44,28 @@ function getFeatureId(feature) {
   return feature?.id ?? feature?.properties?.id ?? null;
 }
 
+function getPopupId(feature) {
+  const featureId = getFeatureId(feature);
+  if (featureId != null) return String(featureId);
+
+  const properties = feature?.properties || {};
+  return [
+    properties.layer,
+    properties.municipality,
+    properties.county,
+    properties.forest_type,
+    properties.final_score,
+  ].join("|");
+}
+
+function getLayerCenterLatLng(layer, fallbackLatLng) {
+  if (layer?.getBounds) {
+    return layer.getBounds().getCenter();
+  }
+
+  return fallbackLatLng;
+}
+
 function MapWatcher({ onViewportChange, onMouseMove }) {
   useMapEvents({
     moveend(event) {
@@ -57,6 +84,11 @@ function MapWatcher({ onViewportChange, onMouseMove }) {
 
 function InitialZoom({ selectedCounty, onViewportChange }) {
   const map = useMap();
+  const onViewportChangeRef = useRef(onViewportChange);
+
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   useEffect(() => {
     const bounds = COUNTY_BOUNDS[normalizeCountyName(selectedCounty || "")] || LITHUANIA_BOUNDS;
@@ -67,11 +99,11 @@ function InitialZoom({ selectedCounty, onViewportChange }) {
         animate: false,
         padding: [18, 18],
       });
-      onViewportChange(map);
+      onViewportChangeRef.current(map);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [map, onViewportChange, selectedCounty]);
+  }, [map, selectedCounty]);
 
   return null;
 }
@@ -173,9 +205,137 @@ function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange
   );
 }
 
+function DraggableInfoPopup({ anchorPoint, content, offset, onOffsetChange, onClose }) {
+  const popupRef = useRef(null);
+  const dragRef = useRef(null);
+  const [popupSize, setPopupSize] = useState({ width: 320, height: 260 });
+
+  const popupLeft = anchorPoint.x + offset.x;
+  const popupTop = anchorPoint.y + offset.y;
+  const lineEnd = {
+    x: popupLeft + popupSize.width / 2,
+    y: popupTop + Math.min(42, popupSize.height / 2),
+  };
+
+  useEffect(() => {
+    const popupElement = popupRef.current;
+    if (!popupElement) return undefined;
+
+    const updateSize = () => {
+      setPopupSize({
+        width: popupElement.offsetWidth || 320,
+        height: popupElement.offsetHeight || 260,
+      });
+    };
+
+    updateSize();
+
+    if (!window.ResizeObserver) return undefined;
+
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(popupElement);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const handlePointerDown = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startOffset: offset,
+    };
+  };
+
+  const handlePointerMove = (event) => {
+    if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const deltaX = event.clientX - dragRef.current.startX;
+    const deltaY = event.clientY - dragRef.current.startY;
+    onOffsetChange({
+      x: dragRef.current.startOffset.x + deltaX,
+      y: dragRef.current.startOffset.y + deltaY,
+    });
+  };
+
+  const handlePointerUp = (event) => {
+    event.stopPropagation();
+    if (dragRef.current?.pointerId === event.pointerId) {
+      dragRef.current = null;
+    }
+  };
+
+  return (
+    <div className="feature-popup-layer">
+      <svg className="feature-popup-line" aria-hidden="true">
+        <line
+          x1={anchorPoint.x}
+          y1={anchorPoint.y}
+          x2={lineEnd.x}
+          y2={lineEnd.y}
+        />
+        <circle cx={anchorPoint.x} cy={anchorPoint.y} r="4" />
+      </svg>
+      <div
+        ref={popupRef}
+        className="feature-popup-card"
+        style={{
+          left: popupLeft,
+          top: popupTop,
+        }}
+      >
+        <div
+          className="feature-popup-header"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+        >
+          <strong>{content.title}</strong>
+          <button
+            className="feature-popup-close"
+            type="button"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div className="feature-popup-content">
+          {content.rows.map((row) => (
+            <div
+              className={`feature-popup-row ${row.spacing === "after" ? "has-spacing" : ""}`}
+              key={row.label}
+            >
+              <div>
+                <strong>{row.label}:</strong> {row.value}
+              </div>
+              {row.detail && (
+                <div>
+                  {row.detailLabel ? `${row.detailLabel}: ` : ""}
+                  {row.detail}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MapPage() {
   const { isAuthenticated, hasActivePlan, loading: authLoading } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
   const [hoveredFeature, setHoveredFeature] = useState(null);
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -189,6 +349,7 @@ export default function MapPage() {
     soil: "30",
     road: "30",
   });
+  const [popups, setPopups] = useState([]);
 
   const selectedCounty = searchParams.get("county") || "";
   const {
@@ -212,6 +373,73 @@ export default function MapPage() {
     [hoveredFeature, selectedFeature]
   );
 
+  const updatePopupAnchor = useCallback((latlng) => {
+    const map = mapRef.current;
+    if (!map || !latlng) {
+      return null;
+    }
+
+    const point = map.latLngToContainerPoint(latlng);
+    return { x: point.x, y: point.y };
+  }, []);
+
+  const updatePopupAnchors = useCallback((map = mapRef.current) => {
+    if (!map) return;
+
+    setPopups((current) => current.map((popup) => {
+      const point = map.latLngToContainerPoint(popup.latlng);
+      return {
+        ...popup,
+        anchorPoint: { x: point.x, y: point.y },
+      };
+    }));
+  }, []);
+
+  const openFeaturePopup = useCallback((feature, fallbackLatLng) => {
+    if (!feature || !mapRef.current) return;
+
+    const featureId = getFeatureId(feature);
+    const layer =
+      featureLayerRef.current.get(feature) ||
+      (featureId != null ? featureLayerByIdRef.current.get(String(featureId)) : null);
+    const latlng = getLayerCenterLatLng(layer, fallbackLatLng);
+
+    if (!latlng) return;
+
+    const point = mapRef.current.latLngToContainerPoint(latlng);
+    const popupId = getPopupId(feature);
+
+    setPopups((current) => {
+      const existingIndex = current.findIndex((popup) => popup.id === popupId);
+      const existing = existingIndex >= 0 ? current[existingIndex] : null;
+      const nextPopup = {
+        id: popupId,
+        feature,
+        latlng,
+        anchorPoint: { x: point.x, y: point.y },
+        offset: existing?.offset || {
+          x: 22 + current.length * 18,
+          y: -24 + current.length * 18,
+        },
+      };
+
+      if (existingIndex >= 0) {
+        return [
+          ...current.slice(0, existingIndex),
+          ...current.slice(existingIndex + 1),
+          nextPopup,
+        ];
+      }
+
+      return [...current, nextPopup];
+    });
+  }, []);
+
+  const handleMapViewportChange = useCallback((map) => {
+    handleViewportChange(map);
+    updatePopupAnchors(map);
+  }, [handleViewportChange, updatePopupAnchors]);
+
   const onEachFeature = useCallback((feature, layer) => {
     featureLayerRef.current.set(feature, layer);
     const featureId = getFeatureId(feature);
@@ -225,17 +453,10 @@ export default function MapPage() {
       click: (event) => {
         setSelectedFeature(feature);
         event.originalEvent?.stopPropagation();
-        layer.openPopup(event.latlng);
+        openFeaturePopup(feature, event.latlng);
       },
     });
-
-    layer.bindPopup(buildFeaturePopupContent(feature.properties || {}), {
-      autoClose: false,
-      closeOnClick: false,
-      autoPan: false,
-      keepInView: false,
-    });
-  }, []);
+  }, [openFeaturePopup]);
 
   const applyWeightChange = (field, rawValue, syncInput = true) => {
     let newValue = Number(rawValue);
@@ -288,28 +509,12 @@ export default function MapPage() {
     }
   };
 
-  const openFeaturePopup = useCallback((feature) => {
-    if (!feature || !mapRef.current) return;
-
-    const featureId = getFeatureId(feature);
-    const layer =
-      featureLayerRef.current.get(feature) ||
-      (featureId != null ? featureLayerByIdRef.current.get(String(featureId)) : null);
-    if (!layer?.openPopup) return;
-
-    const latlng = layer.getBounds ? layer.getBounds().getCenter() : undefined;
-    layer.openPopup(latlng);
-  }, []);
-
   useEffect(() => {
-    if (!selectedFeature) return undefined;
-
-    const timeoutId = window.setTimeout(() => {
-      openFeaturePopup(selectedFeature);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [openFeaturePopup, selectedFeature]);
+    setPopups((current) => current.map((popup) => ({
+      ...popup,
+      anchorPoint: updatePopupAnchor(popup.latlng) || popup.anchorPoint,
+    })));
+  }, [language, updatePopupAnchor]);
 
   const handleTop3Click = useCallback((item) => {
     const feature = item.feature;
@@ -369,7 +574,7 @@ export default function MapPage() {
                   geoData={geoData}
                   styleFeature={styleFeature}
                   onEachFeature={onEachFeature}
-                  handleViewportChange={handleViewportChange}
+                  handleViewportChange={handleMapViewportChange}
                   handleMouseMove={handleMouseMove}
                   coords={coords}
                   mapDataLoading={mapDataLoading}
@@ -380,6 +585,23 @@ export default function MapPage() {
                   t={t}
                 />
               </MapContainer>
+              {popups.map((popup) => (
+                <DraggableInfoPopup
+                  key={popup.id}
+                  anchorPoint={popup.anchorPoint}
+                  content={getFeaturePopupRows(popup.feature.properties || {}, language)}
+                  offset={popup.offset}
+                  onOffsetChange={(offset) => setPopups((current) => current.map((item) => (
+                    item.id === popup.id ? { ...item, offset } : item
+                  )))}
+                  onClose={() => {
+                    setPopups((current) => current.filter((item) => item.id !== popup.id));
+                    if (selectedFeature === popup.feature) {
+                      setSelectedFeature(null);
+                    }
+                  }}
+                />
+              ))}
             </div>
 
             <div className="card legend-card">
@@ -412,9 +634,13 @@ export default function MapPage() {
               {mapDataLoading ? t("dataLoadingShort") : t("dataReady")}
             </div>
             <div className="status-sub">
-              <span className="status-tag">{getLayerName(currentLayer)}</span>
+              <span className="status-tag">{getLayerName(currentLayer, language)}</span>
               <span className="status-tag">{t("objectCount")}: {featureCount}</span>
-              {selectedCounty && <span className="status-tag">{selectedCounty}</span>}
+              {selectedCounty && (
+                <span className="status-tag">
+                  {translatePlaceName(selectedCounty, language, "county")}
+                </span>
+              )}
             </div>
           </div>
 
@@ -464,7 +690,7 @@ export default function MapPage() {
                     <div className="top3-rank">{item.rank}</div>
                     <div className="top3-content">
                       <div className="top3-title">
-                        {item.rank} {t("rank")} - {item.forestType}, {item.municipality}, {item.county}
+                        {item.rank} {t("rank")} - {translateForestType(item.forestType, language)}, {translatePlaceName(item.municipality, language, "municipality")}, {translatePlaceName(item.county, language, "county")}
                       </div>
                       <div className="top3-score">
                         {t("index")}: <strong>{item.score.toFixed(2)}</strong>

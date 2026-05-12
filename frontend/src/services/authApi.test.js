@@ -43,3 +43,28 @@ test("getAuthErrorMessage prefers backend detail over fallback", () => {
   );
   assert.equal(authApi.getAuthErrorMessage({}, "Fallback"), "Fallback");
 });
+
+test("getAuthErrorMessage translates known backend auth details", () => {
+  const t = (key) => ({
+    authEmailExists: "A user with this email address already exists.",
+    strongPassword: "Password rules",
+  }[key] || key);
+
+  assert.equal(
+    authApi.getAuthErrorMessage(
+      { response: { data: { detail: "Naudotojas su šiuo el. pašto adresu jau egzistuoja." } } },
+      "Fallback",
+      t,
+    ),
+    "A user with this email address already exists.",
+  );
+
+  assert.equal(
+    authApi.getAuthErrorMessage(
+      { response: { data: { detail: "Slaptažodis turi būti bent 8 simbolių, turėti bent vieną didžiąją raidę, bent vieną skaičių ir bent vieną specialų simbolį." } } },
+      "Fallback",
+      t,
+    ),
+    "Password rules",
+  );
+});

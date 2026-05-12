@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { translatePlaceName } from "../features/map/formatters";
 
 export default function PageTopbar() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function PageTopbar() {
               className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
             >
               {t("navMap")}
-              {hasCountyPlan && purchasedCounty && ` (${purchasedCounty})`}
+              {hasCountyPlan && purchasedCounty && ` (${translatePlaceName(purchasedCounty, language, "county")})`}
             </NavLink>
           )}
 
@@ -72,7 +73,7 @@ export default function PageTopbar() {
             {t("home")}
           </NavLink>
 
-          <div className="language-selector" aria-label="Kalbos pasirinkimas">
+          <div className="language-selector" aria-label={t("languageSelector")}>
             <button
               type="button"
               className={`language-choice ${language === "lt" ? "active" : ""}`}
