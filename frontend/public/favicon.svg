@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 72">
+  <style>
+    path {
+      fill: #163b2c;
+      stroke: #163b2c;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+  <path d="M32 4 57 39H43l14 20H38v10H26V59H7l14-20H7L32 4Zm0 14L20 35h9L18 51h10v-9h8v9h10L35 35h9L32 18Z" />
+  <path d="M32 18v51" />
+</svg>
