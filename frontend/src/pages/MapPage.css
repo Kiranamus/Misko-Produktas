@@ -19,6 +19,7 @@
   width: 100%;
   margin: 0;
   padding: clamp(8px, 0.8vw, 16px);
+  box-sizing: border-box;
 }
 
 .map-column {
@@ -76,8 +77,6 @@
   color: #1d3b2c;
 }
 
-/* legenda */
-
 .legend-card {
   flex: 0 0 auto;
   order: -1;
@@ -131,8 +130,6 @@
   white-space: nowrap;
 }
 
-/* status */
-
 .status-card {
   display: flex;
   flex-direction: column;
@@ -161,8 +158,6 @@
   font-size: clamp(11px, 0.7vw, 13px);
   font-weight: 600;
 }
-
-/* svoriai */
 
 .weights-panel {
   display: flex;
@@ -252,8 +247,6 @@
   line-height: 1.35;
 }
 
-/* koordinates */
-
 .coords-box {
   position: absolute;
   bottom: 14px;
@@ -268,8 +261,6 @@
   backdrop-filter: blur(8px);
   border: 1px solid rgba(43, 94, 69, 0.07);
 }
-
-/* top3 */
 
 .top3-panel {
   flex: 1 1 auto;
@@ -362,8 +353,6 @@
 .top3-btn:active {
   transform: translateY(0);
 }
-
-/* popup */
 
 .feature-popup-layer {
   position: absolute;
@@ -467,8 +456,6 @@
   box-shadow: 0 10px 24px rgba(24, 55, 39, 0.12);
 }
 
-/* responsive */
-
 @media (max-width: 1100px) {
   .content {
     overflow: visible;
@@ -479,11 +466,13 @@
     height: auto;
     min-height: calc(100dvh - 72px);
     width: 100%;
+    padding: 16px;
   }
 
   .info-column {
     min-width: unset;
     height: auto;
+    width: 100%;
   }
 
   .map-container {
@@ -523,18 +512,28 @@
   }
 
   .layout {
-    margin: 10px;
+    margin: 0;
+    padding: 16px;
     gap: 10px;
   }
 
   .info-column {
     min-width: 0;
     flex-basis: auto;
+    width: 100%;
+    padding: 0;
+    margin: 0;
   }
 
   .legend {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .legend-row {
+    min-width: unset;
+    flex: 1;
   }
 
   .weight-input-wrap {
@@ -543,5 +542,53 @@
 
   .weight-number {
     width: 72px;
+  }
+
+  .coords-box {
+    bottom: 8px;
+    left: 8px;
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .feature-popup-card {
+    width: calc(100% - 20px);
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 480px) {
+  .layout {
+    padding: 12px;
+  }
+
+  .legend {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .status-sub {
+    gap: 4px;
+  }
+
+  .status-tag {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .weight-number {
+    width: 65px;
+    padding: 0 8px;
+  }
+
+  .top3-item {
+    flex-direction: column;
+  }
+
+  .top3-rank {
+    align-self: flex-start;
   }
 }
