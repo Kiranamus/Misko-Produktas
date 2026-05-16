@@ -152,7 +152,7 @@ function getFeatureStyle(feature, hoveredFeature, selectedFeature) {
   };
 }
 
-function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange, handleMouseMove, coords, mapDataLoading, currentLayer, featureCount, selectedCounty, dataVersion, t }) {
+function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange, handleMouseMove, coords, mapDataLoading, currentLayer, featureCount, selectedCounty, dataVersion, t, isMobile, toggleFullscreen }) {
   return (
     <>
       <MapWatcher
@@ -195,6 +195,15 @@ function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange
         <div className="coords-box">
           {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
         </div>
+      )}
+      {isMobile && (
+        <button
+          className="fullscreen-btn"
+          onClick={toggleFullscreen}
+          aria-label="Pilnas ekranas"
+        >
+          ⛶
+        </button>
       )}
       {mapDataLoading && (
         <div className="loading">
@@ -351,6 +360,8 @@ export default function MapPage() {
   });
   const [popups, setPopups] = useState([]);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 760);
+
   const selectedCounty = searchParams.get("county") || "";
   const {
     coords,
@@ -367,6 +378,27 @@ export default function MapPage() {
   const mapRef = useRef(null);
   const featureLayerRef = useRef(new WeakMap());
   const featureLayerByIdRef = useRef(new Map());
+
+  const toggleFullscreen = () => {
+    const mapContainer = document.querySelector('.map-container');
+    if (!mapContainer) return;
+
+    if (!document.fullscreenElement) {
+      mapContainer.requestFullscreen().catch(err => {
+        console.error(`Fullscreen error: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 760);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const styleFeature = useCallback(
     (feature) => getFeatureStyle(feature, hoveredFeature, selectedFeature),
@@ -583,6 +615,8 @@ export default function MapPage() {
                   selectedCounty={selectedCounty}
                   dataVersion={dataVersion}
                   t={t}
+                  isMobile={isMobile}
+                  toggleFullscreen={toggleFullscreen}
                 />
               </MapContainer>
               {popups.map((popup) => (
