@@ -39,10 +39,11 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   color: inherit;
@@ -51,6 +52,8 @@ a {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.64);
   box-shadow: 0 8px 22px rgba(13, 56, 40, 0.08);
+  width: auto;
+  max-width: fit-content;
 }
 
 .brand-tree-icon {
@@ -88,6 +91,7 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .nav-link {
@@ -113,28 +117,6 @@ a {
 
 .app-main {
   min-height: calc(100vh - 72px);
-}
-
-@media (max-width: 760px) {
-  .topbar-inner {
-    padding: 12px 14px;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .topbar-nav {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .brand-title {
-    font-size: 20px;
-  }
-
-  .brand-tree-icon {
-    width: 30px;
-    height: 34px;
-  }
 }
 
 .nav-button {
@@ -192,4 +174,56 @@ a {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+@media (max-width: 760px) {
+  .topbar-inner {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .brand {
+    display: inline-flex;
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .topbar-nav {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .brand-title {
+    font-size: 20px;
+  }
+
+  .brand-tree-icon {
+    width: 30px;
+    height: 34px;
+  }
+
+  .language-selector {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-nav {
+    gap: 6px;
+  }
+
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .language-choice span:last-child {
+    display: none;
+  }
+
+  .language-selector {
+    gap: 6px;
+  }
 }
