@@ -214,38 +214,35 @@ function MapContent({ geoData, styleFeature, onEachFeature, handleViewportChange
   );
 }
 
+function PopupConnectorLines({ popups }) {
+  return (
+    <svg className="feature-popup-lines" aria-hidden="true">
+      {popups.map((popup) => {
+        const popupLeft = popup.anchorPoint.x + popup.offset.x;
+        const popupTop = popup.anchorPoint.y + popup.offset.y;
+
+        return (
+          <g key={popup.id}>
+            <line
+              x1={popup.anchorPoint.x}
+              y1={popup.anchorPoint.y}
+              x2={popupLeft + 165}
+              y2={popupTop + 42}
+            />
+            <circle cx={popup.anchorPoint.x} cy={popup.anchorPoint.y} r="4" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function DraggableInfoPopup({ anchorPoint, content, offset, onOffsetChange, onClose }) {
   const popupRef = useRef(null);
   const dragRef = useRef(null);
-  const [popupSize, setPopupSize] = useState({ width: 320, height: 260 });
 
   const popupLeft = anchorPoint.x + offset.x;
   const popupTop = anchorPoint.y + offset.y;
-  const lineEnd = {
-    x: popupLeft + popupSize.width / 2,
-    y: popupTop + Math.min(42, popupSize.height / 2),
-  };
-
-  useEffect(() => {
-    const popupElement = popupRef.current;
-    if (!popupElement) return undefined;
-
-    const updateSize = () => {
-      setPopupSize({
-        width: popupElement.offsetWidth || 320,
-        height: popupElement.offsetHeight || 260,
-      });
-    };
-
-    updateSize();
-
-    if (!window.ResizeObserver) return undefined;
-
-    const resizeObserver = new ResizeObserver(updateSize);
-    resizeObserver.observe(popupElement);
-
-    return () => resizeObserver.disconnect();
-  }, []);
 
   const handlePointerDown = (event) => {
     event.preventDefault();
@@ -280,24 +277,14 @@ function DraggableInfoPopup({ anchorPoint, content, offset, onOffsetChange, onCl
   };
 
   return (
-    <div className="feature-popup-layer">
-      <svg className="feature-popup-line" aria-hidden="true">
-        <line
-          x1={anchorPoint.x}
-          y1={anchorPoint.y}
-          x2={lineEnd.x}
-          y2={lineEnd.y}
-        />
-        <circle cx={anchorPoint.x} cy={anchorPoint.y} r="4" />
-      </svg>
-      <div
-        ref={popupRef}
-        className="feature-popup-card"
-        style={{
-          left: popupLeft,
-          top: popupTop,
-        }}
-      >
+    <div
+      ref={popupRef}
+      className="feature-popup-card"
+      style={{
+        left: popupLeft,
+        top: popupTop,
+      }}
+    >
         <div
           className="feature-popup-header"
           onPointerDown={handlePointerDown}
@@ -337,7 +324,6 @@ function DraggableInfoPopup({ anchorPoint, content, offset, onOffsetChange, onCl
             </div>
           ))}
         </div>
-      </div>
     </div>
   );
 }
@@ -576,10 +562,11 @@ export default function MapPage() {
 
   const weightSum = weights.restrictions + weights.soil + weights.road;
   const weightLabels = {
-    restrictions: t("restrictions"),
-    soil: t("soil"),
-    road: t("roads"),
+    restrictions: `${t("restrictions")}*`,
+    soil: `${t("soil")}**`,
+    road: `${t("roads")}***`,
   };
+  const weightDescriptions = t("weightDescriptions");
 
   return (
     <div className="content">
@@ -619,23 +606,28 @@ export default function MapPage() {
                   toggleFullscreen={toggleFullscreen}
                 />
               </MapContainer>
-              {popups.map((popup) => (
-                <DraggableInfoPopup
-                  key={popup.id}
-                  anchorPoint={popup.anchorPoint}
-                  content={getFeaturePopupRows(popup.feature.properties || {}, language)}
-                  offset={popup.offset}
-                  onOffsetChange={(offset) => setPopups((current) => current.map((item) => (
-                    item.id === popup.id ? { ...item, offset } : item
-                  )))}
-                  onClose={() => {
-                    setPopups((current) => current.filter((item) => item.id !== popup.id));
-                    if (selectedFeature === popup.feature) {
-                      setSelectedFeature(null);
-                    }
-                  }}
-                />
-              ))}
+              {popups.length > 0 && (
+                <div className="feature-popup-layer">
+                  <PopupConnectorLines popups={popups} />
+                  {popups.map((popup) => (
+                    <DraggableInfoPopup
+                      key={popup.id}
+                      anchorPoint={popup.anchorPoint}
+                      content={getFeaturePopupRows(popup.feature.properties || {}, language)}
+                      offset={popup.offset}
+                      onOffsetChange={(offset) => setPopups((current) => current.map((item) => (
+                        item.id === popup.id ? { ...item, offset } : item
+                      )))}
+                      onClose={() => {
+                        setPopups((current) => current.filter((item) => item.id !== popup.id));
+                        if (selectedFeature === popup.feature) {
+                          setSelectedFeature(null);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="card legend-card">
@@ -708,6 +700,14 @@ export default function MapPage() {
 
             <div className="weight-sum">
               {t("weightsSum")}: <strong>{weightSum}</strong> / 100
+            </div>
+
+            <div className="weight-descriptions">
+              {["restrictions", "soil", "road"].map((field) => (
+                <p key={field}>
+                  <strong>{weightLabels[field]}</strong> {weightDescriptions[field]}
+                </p>
+              ))}
             </div>
 
             <div className="weight-note">{t("weightsNote")}</div>

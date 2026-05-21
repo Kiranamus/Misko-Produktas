@@ -147,6 +147,10 @@ a {
   cursor: pointer;
 }
 
+.language-label {
+  display: inline-block;
+}
+
 .language-choice.active {
   color: #0d3828;
   text-decoration: underline;
@@ -158,6 +162,7 @@ a {
   height: 13px;
   display: inline-block;
   overflow: hidden;
+  flex: 0 0 20px;
   box-shadow: 0 0 0 1px rgba(13, 56, 40, 0.16);
 }
 
@@ -217,10 +222,6 @@ a {
   .nav-link {
     padding: 6px 10px;
     font-size: 12px;
-  }
-
-  .language-choice span:last-child {
-    display: none;
   }
 
   .language-selector {

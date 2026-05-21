@@ -17,10 +17,10 @@ const COPY = {
       accessibility: "Susisiekimas",
     },
     ratings: {
-      index: ["Labai blogai", "Blogai", "Vidutiniškai", "Gerai", "Puiku"],
+      index: ["Netinkama", "Ribota vertė", "Vidutinė vertė", "Tinkama", "Labai tinkama"],
       forest: ["Labai mažai miško", "Mažai miško", "Vidutiniškai daug miško", "Daug miško", "Labai daug miško"],
-      restrictions: ["Labai dideli ribojimai", "Dideli ribojimai", "Vidutiniai ribojimai", "Maži ribojimai", "Labai maži ribojimai", "Nėra ribojimų"],
-      quality: ["Labai blogas", "Prastas", "Vidutiniškas", "Labai geras", "Puikus"],
+      restrictions: ["Netinkama", "Ribota vertė", "Vidutinė vertė", "Tinkama", "Labai tinkama"],
+      quality: ["Netinkama", "Ribota vertė", "Vidutinė vertė", "Tinkama", "Labai tinkama"],
     },
     forestTypes: {
       "spygliuociu miskai": "Spygliuočių miškai",
@@ -47,10 +47,10 @@ const COPY = {
       accessibility: "Accessibility",
     },
     ratings: {
-      index: ["Very bad", "Bad", "Average", "Good", "Excellent"],
+      index: ["Unsuitable", "Limited potential", "Moderate potential", "Suitable", "Highly suitable"],
       forest: ["Very little forest", "Little forest", "Moderate forest coverage", "High forest coverage", "Very high forest coverage"],
-      restrictions: ["Very high restrictions", "High restrictions", "Moderate restrictions", "Low restrictions", "Very low restrictions", "No restrictions"],
-      quality: ["Very poor", "Poor", "Average", "Very good", "Excellent"],
+      restrictions: ["Unsuitable", "Limited potential", "Moderate potential", "Suitable", "Highly suitable"],
+      quality: ["Unsuitable", "Limited potential", "Moderate potential", "Suitable", "Highly suitable"],
     },
     forestTypes: {
       "spygliuociu miskai": "Coniferous forests",
@@ -100,10 +100,10 @@ function normalizeText(value) {
 }
 
 function ratingByThreshold(value, labels) {
-  if (value >= 0.9) return labels[4];
-  if (value >= 0.7) return labels[3];
-  if (value >= 0.5) return labels[2];
-  if (value >= 0.3) return labels[1];
+  if (value >= 0.8) return labels[4];
+  if (value >= 0.6) return labels[3];
+  if (value >= 0.4) return labels[2];
+  if (value >= 0.2) return labels[1];
   return labels[0];
 }
 
@@ -163,13 +163,7 @@ export function getForestRating(value, language = "lt") {
 }
 
 export function getRestrictionsRating(value, language = "lt") {
-  const labels = getCopy(language).ratings.restrictions;
-  if (value === 1) return labels[5];
-  if (value >= 0.9) return labels[4];
-  if (value >= 0.7) return labels[3];
-  if (value >= 0.5) return labels[2];
-  if (value >= 0.3) return labels[1];
-  return labels[0];
+  return ratingByThreshold(value, getCopy(language).ratings.restrictions);
 }
 
 export function getSoilRating(value, language = "lt") {

@@ -80,7 +80,7 @@ export default function PageTopbar() {
               onClick={() => setLanguage("lt")}
             >
               <span className="language-flag flag-lt" aria-hidden="true" />
-              LT
+              <span className="language-label">LT</span>
             </button>
             <button
               type="button"
@@ -96,7 +96,7 @@ export default function PageTopbar() {
                   <path d="M30 0v36M0 18h60" stroke="#C8102E" strokeWidth="7" />
                 </svg>
               </span>
-              EN
+              <span className="language-label">EN</span>
             </button>
           </div>
         </nav>
